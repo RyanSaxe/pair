@@ -22,9 +22,9 @@ export const identity = (target) => target.session;
 // and with name, the name that pi shows for the session. args are the
 // caller's own flags for pi, which end with --, so that a flag that an
 // extension adds does not take the prompt as its value.
-export const launch = ({ name, prompt, args = [] }) => [
+export const launch = ({ name: sessionName, prompt, args = [] }) => [
   command,
-  ...(name ? ["--name", name] : []),
+  ...(sessionName ? ["--name", sessionName] : []),
   ...endOptions(args),
   prompt,
 ];

@@ -6,11 +6,11 @@ import { buildPage } from "../../src/cli/build.mjs";
 import { guideText } from "../../src/shared/guide.mjs";
 import { hub, pairCli, root, task } from "../support/hub.mjs";
 
-// printed maps each moment's name to its text as guideText returns it, which is
+// momentTexts maps each moment's name to its text as guideText returns it, which is
 // the text a command prints.
-const printed = new Map();
+const momentTexts = new Map();
 for (const file of await fs.readdir(path.join(root, "guide/moments")))
-  printed.set(
+  momentTexts.set(
     path.basename(file, ".md"),
     (await guideText(`moments/${file}`)).trim(),
   );
@@ -62,8 +62,14 @@ async function holder(t) {
     cli.run(
       "propose",
       ...dir,
-      ...["--id", id, "--title", id, "--delivers", "A fix."],
-      ...["--recommend", "here"],
+      "--id",
+      id,
+      "--title",
+      id,
+      "--delivers",
+      "A fix.",
+      "--recommend",
+      "here",
     );
   async function reviewer(id, action, body = {}) {
     const sent = await session.request(
@@ -79,7 +85,7 @@ async function holder(t) {
   return {
     cli,
     session,
-    printed,
+    printed: momentTexts,
     publish,
     read,
     submit,
@@ -159,19 +165,22 @@ test("each command prints the moment it is run at", async (t) => {
       async () => {
         await propose(`asked-${where}`);
         return cli.run(
-          ...["propose", "--session-dir", session.directory],
-          ...["--id", `asked-${where}`, "--start", where],
-          ...["--quote", "Do this too."],
+          "propose",
+          "--session-dir",
+          session.directory,
+          "--id",
+          `asked-${where}`,
+          "--start",
+          where,
+          "--quote",
+          "Do this too.",
         );
       },
     ]),
     [
       ["start", "start-from"],
       () =>
-        cli.run(
-          "start",
-          ...["--from", session.directory, "--proposal", "apart"],
-        ),
+        cli.run("start", "--from", session.directory, "--proposal", "apart"),
     ],
     [
       "read-closed",

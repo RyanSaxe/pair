@@ -56,12 +56,12 @@ async function openPage(t, url, options = {}) {
 
 async function select(page, words, id = "first") {
   await page.evaluate(
-    ([words, id]) => {
-      const node = document.getElementById(id).firstChild;
-      const at = node.data.indexOf(words);
+    ([targetWords, targetId]) => {
+      const node = document.getElementById(targetId).firstChild;
+      const at = node.data.indexOf(targetWords);
       const range = document.createRange();
       range.setStart(node, at);
-      range.setEnd(node, at + words.length);
+      range.setEnd(node, at + targetWords.length);
       getSelection().removeAllRanges();
       getSelection().addRange(range);
     },
@@ -104,7 +104,8 @@ const settled = (page, id) =>
     );
 const opacity = (page, id) =>
   page.evaluate(
-    (id) => Number(getComputedStyle(document.getElementById(id)).opacity),
+    (targetId) =>
+      Number(getComputedStyle(document.getElementById(targetId)).opacity),
     id,
   );
 const openDialogs = (page) =>
@@ -124,14 +125,22 @@ const draftNotes = (page) =>
 // A drawer's box, its main button's box and the header's bottom.
 const boxes = (page, id, control) =>
   page.evaluate(
-    ([id, control]) => {
-      const box = (element) => element.getBoundingClientRect().toJSON();
-      return {
-        drawer: box(document.getElementById(id)),
-        control: control && box(document.querySelector(control)),
-        header: box(document.querySelector(".frame-header")),
-      };
-    },
+    ([drawerId, controlSelector]) => ({
+      drawer: document
+        .getElementById(drawerId)
+        .getBoundingClientRect()
+        .toJSON(),
+      control:
+        controlSelector &&
+        document
+          .querySelector(controlSelector)
+          .getBoundingClientRect()
+          .toJSON(),
+      header: document
+        .querySelector(".frame-header")
+        .getBoundingClientRect()
+        .toJSON(),
+    }),
     [id, control],
   );
 const selection = (page) =>
@@ -282,9 +291,11 @@ test("a long note, a long quote, three images, a long Send list and New work ite
   if (!page) return;
   const inView = (id, button) =>
     page.evaluate(
-      ([id, button]) => {
-        const drawer = document.getElementById(id).getBoundingClientRect();
-        const box = document.getElementById(button).getBoundingClientRect();
+      ([drawerId, buttonId]) => {
+        const drawer = document
+          .getElementById(drawerId)
+          .getBoundingClientRect();
+        const box = document.getElementById(buttonId).getBoundingClientRect();
         return box.bottom <= drawer.bottom && drawer.bottom <= innerHeight;
       },
       [id, button],
@@ -340,7 +351,10 @@ test("a long note, a long quote, three images, a long Send list and New work ite
   const scrollForm = (to) =>
     drawer
       .locator(".dialog-body")
-      .evaluate((body, to) => (body.scrollTop = to * body.scrollHeight), to);
+      .evaluate(
+        (body, fraction) => (body.scrollTop = fraction * body.scrollHeight),
+        to,
+      );
   await scrollForm(0);
   await page.locator("#start-dialog[data-more-below]").waitFor();
   assert.equal(await page.locator("#start-dialog[data-more-above]").count(), 0);

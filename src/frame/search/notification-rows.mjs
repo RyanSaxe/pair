@@ -51,7 +51,7 @@ function eventWords(entry, event) {
 }
 // A row's fields, from the newest event of its thread, round, proposal or session
 // start.
-function eventRow(entry, event, state, thisId) {
+function eventRow(entry, event, { state, thisId }) {
   return {
     key: KEY_OF[event.kind](entry, event),
     kind: KIND_OF[event.kind],
@@ -98,7 +98,8 @@ export function bellRows(lines, thisId) {
   for (const event of lines) {
     const key = KEY_OF[event.kind](event.entry, event);
     if (rows.has(key)) rows.get(key).events.push(event.id);
-    else rows.set(key, eventRow(event.entry, event, "unread", thisId));
+    else
+      rows.set(key, eventRow(event.entry, event, { state: "unread", thisId }));
     replies.set(key, new Set(replies.get(key)).add(event.message));
     rows.get(key).count = replies.get(key).size;
   }
@@ -113,12 +114,12 @@ function statusOf(card, sessions) {
   });
   return word === "Proposed" ? WAITING_FOR_START : word;
 }
-const ANSWERED = ["replied", "agentAcknowledged"];
+const ANSWERED = new Set(["replied", "agentAcknowledged"]);
 function threadRow(line, entry, thisId) {
   return {
     key: `thread:${line.thread}`,
     kind: "thread",
-    state: ANSWERED.includes(line.state) ? "read" : "waiting",
+    state: ANSWERED.has(line.state) ? "read" : "waiting",
     words: line.text,
     at: line.at,
     count: 1,
@@ -143,7 +144,7 @@ function threadRow(line, entry, thisId) {
 // row is read.
 // threadLines is the answer of /api/notifications, by session. Before it
 // arrives, a thread the reviewer just read still has a row, from its events.
-export function notificationRows(sessions, threadLines, cleared, thisId) {
+export function notificationRows(sessions, { threadLines, cleared, thisId }) {
   const unread = bellRows(bellLines(sessions, cleared, thisId), thisId);
   const rows = new Map(unread.map((row) => [row.key, row]));
   for (const entry of sessions) {
@@ -153,13 +154,14 @@ export function notificationRows(sessions, threadLines, cleared, thisId) {
       const row = threadRow(line, entry, thisId);
       if (!rows.has(row.key)) rows.set(row.key, row);
     }
-    const newest = [...(entry.events || [])].sort((a, b) =>
+    const newest = (entry.events || []).toSorted((a, b) =>
       b.at.localeCompare(a.at),
     );
     for (const event of newest) {
       if (!KEY_OF[event.kind]) continue;
       const key = KEY_OF[event.kind](entry, event);
-      if (!rows.has(key)) rows.set(key, eventRow(entry, event, "read", thisId));
+      if (!rows.has(key))
+        rows.set(key, eventRow(entry, event, { state: "read", thisId }));
     }
     for (const card of listed.proposals) {
       const row = rows.get(`proposal:${entry.id}:${card.id}`);

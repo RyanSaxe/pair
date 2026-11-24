@@ -1,25 +1,25 @@
 # Setup
 
-pair needs Node 22.23.5 or newer in 22, 24.22.3 or newer in 24, or 26.13.1
-or newer, and has no dependencies. `pair start` checks what a session needs
-and refuses with the reason: Node too old, the hub port taken by another
-program or by another state directory's hub, storage it cannot write, or a sandbox that blocks the hub. If Node
-is missing or too old, tell the reviewer which of those Node releases pair
-needs, and ask how they want to install it.
+pair needs Node 22.23.5 or newer in 22, 24.22.3 or newer in 24, or 26.13.1 or
+newer, and has no dependencies. `pair start` checks what a session needs and
+refuses with the reason: Node too old, the hub port taken by another program or
+by another state directory's hub, storage it cannot write, or a sandbox that
+blocks the hub. If Node is missing or too old, tell the reviewer which of those
+Node releases pair needs, and ask how they want to install it.
 
-When `pair start` or another command fails, run `pair check`. It prints one
-line for each thing a session needs: the Node version, whether it can write
-session storage, whether 127.0.0.1 answers, whether the hub port is free,
-in use by this state directory's hub, in use by another state directory's hub,
-or in use by another program, and, when Codex is
-installed, whether Codex's rules file matches pair's rule.
+When `pair start` or another command fails, run `pair check`. It prints one line
+for each thing a session needs: the Node version, whether it can write session
+storage, whether 127.0.0.1 answers, whether the hub port is free, in use by this
+state directory's hub, in use by another state directory's hub, or in use by
+another program, and, when Codex is installed, whether Codex's rules file
+matches pair's rule.
 
 ## Sandboxes
 
-The hub needs to write its state directory and listen on 127.0.0.1. If a
-sandbox blocks either, allow the `pair` command to run outside it. Do not
-switch to a different state directory, because the hub on the usual port
-cannot find a session stored anywhere else.
+The hub needs to write its state directory and listen on 127.0.0.1. If a sandbox
+blocks either, allow the `pair` command to run outside it. Do not switch to a
+different state directory, because the hub on the usual port cannot find a
+session stored anywhere else.
 
 Under Codex, the sandbox blocks both. The first `pair` command fails with an
 error that names the sandbox, and Codex asks for approval to run it again
@@ -30,12 +30,11 @@ writes that file, which contains only pair's allow rule, so a `pair` command
 then runs outside the sandbox on the first try. Codex reads the file when it
 starts, so ask the reviewer to restart Codex.
 
-If your agent CLI asks for approval before each `pair` command, ask the
-reviewer to allow `pair` in its settings, so a round doesn't stall on
-prompts.
+If your agent CLI asks for approval before each `pair` command, ask the reviewer
+to allow `pair` in its settings, so a round doesn't stall on prompts.
 
 ## When feedback did not wake you
 
-When the reviewer says in the chat that their feedback did not reach you,
-run `pair read`, which prints it and the next step. `pair status` prints
-the holder and the last wake, with the reason if the wake failed.
+When the reviewer says in the chat that their feedback did not reach you, run
+`pair read`, which prints it and the next step. `pair status` prints the holder
+and the last wake, with the reason if the wake failed.

@@ -28,21 +28,21 @@ const showSave = (shown) => {
     button.hidden = !shown;
 };
 
-export function checkRow(rows, chosen) {
-  for (const row of rows) {
+export function checkRow(items, chosen) {
+  for (const row of items) {
     row.setAttribute("aria-checked", String(row === chosen));
     row.classList.toggle("current", row === chosen);
     row.tabIndex = row === chosen ? 0 : -1;
   }
 }
-export function arrowKeys(group, rows, chosen, choose) {
+export function arrowKeys(group, { rows: getRows, chosen, choose }) {
   group.addEventListener("keydown", (event) => {
     const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[
       event.key
     ];
     if (!step) return;
     event.preventDefault();
-    const open = rows().filter((row) => !row.disabled);
+    const open = getRows().filter((row) => !row.disabled);
     const index = open.indexOf(chosen());
     const next = open[(index + step + open.length) % open.length];
     choose(next);
@@ -236,7 +236,7 @@ export function installStart() {
     "[data-start-save]",
   )) {
     button.setAttribute("aria-keyshortcuts", sendKeyName());
-    button.onclick = () => send("save", button);
+    button.addEventListener("click", () => send("save", button));
   }
   // The form's left button has the key of the note dialog's left button.
   for (const id of ["start-write-title", "start-write-text"])
@@ -248,22 +248,26 @@ export function installStart() {
       );
       if (!save.hidden && !save.disabled) save.click();
     });
-  for (const row of rows()) row.onclick = () => select(row.dataset.where);
-  arrowKeys(
-    $("start-dialog").querySelector("[role=radiogroup]"),
+  for (const row of rows())
+    row.addEventListener("click", () => select(row.dataset.where));
+  arrowKeys($("start-dialog").querySelector("[role=radiogroup]"), {
     rows,
-    () => rows().find((row) => row.dataset.where === where),
-    (row) => select(row.dataset.where),
-  );
+    chosen: () => rows().find((row) => row.dataset.where === where),
+    choose: (row) => select(row.dataset.where),
+  });
   // Start and New work item keep each card's message when another opens here.
   $("start-message").addEventListener("input", (event) => {
     if (!card) return;
     state.startMessages[card.id] = event.target.value;
     persist();
   });
-  $("start-send").onclick = () => send("start", $("start-send"));
-  $("start-copy").onclick = copy;
-  $("start-open").onclick = () => send("open-agent", $("start-open"));
+  $("start-send").addEventListener("click", () =>
+    send("start", $("start-send")),
+  );
+  $("start-copy").addEventListener("click", copy);
+  $("start-open").addEventListener("click", () =>
+    send("open-agent", $("start-open")),
+  );
   for (const id of ["start-message", "start-write-title", "start-write-text"])
     $(id).addEventListener("keydown", (event) => {
       if (!shiftEnter(event)) return;

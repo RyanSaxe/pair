@@ -25,13 +25,15 @@ async function copyPackage(t) {
 // src/build/ must change the version.
 test("the hub version changes when any file the hub runs changes", async (t) => {
   const copy = await copyPackage(t);
-  const settings = pathToFileURL(path.join(copy, "src/shared/settings.mjs"));
+  const settingsModule = pathToFileURL(
+    path.join(copy, "src/shared/settings.mjs"),
+  );
   const version = async () =>
     (
       await exec(process.execPath, [
         "--input-type=module",
         "-e",
-        `import { version } from "${settings}"; console.log(version);`,
+        `import { version } from "${settingsModule}"; console.log(version);`,
       ])
     ).stdout;
   const before = await version();

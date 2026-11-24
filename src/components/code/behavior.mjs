@@ -29,7 +29,7 @@ document.addEventListener("scroll", followCodeNote, {
 window.addEventListener("resize", followCodeNote);
 /* showNote() puts a note outside its figure, because the figure has
    overflow: hidden and would cut a note on the last line in half. */
-function showNote(element, line, mark, note) {
+function showNote({ element, line, mark, note }) {
   const popup = document.createElement("div");
   popup.className = "code-popup";
   popup.popover = "manual";
@@ -41,7 +41,7 @@ function showNote(element, line, mark, note) {
   shut.type = "button";
   shut.className = "code-popup-close";
   shut.textContent = "\u2715";
-  shut.onclick = closeCodeNote;
+  shut.addEventListener("click", closeCodeNote);
   popup.append(label, text, shut);
   ($("page-content") || element).append(popup);
   popup.showPopover();
@@ -81,10 +81,10 @@ function addNote(element, lines, note) {
     event.stopPropagation();
     const again = codeNote?.mark === mark;
     closeCodeNote();
-    if (!again) codeNote = showNote(element, line, mark, note);
+    if (!again) codeNote = showNote({ element, line, mark, note });
   };
-  mark.onclick = toggle;
-  line.onclick = toggle;
+  mark.addEventListener("click", toggle);
+  line.addEventListener("click", toggle);
   line.prepend(mark);
 }
 /* watchCodeScroll() fades the right edge while a line extends past the

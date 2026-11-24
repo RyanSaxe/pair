@@ -101,6 +101,7 @@ async function keepSource(sessionDir, source, html) {
         : " Run pair status to see whether you already published it.";
     throw new Error(
       `Page ${record.page.id} of round ${record.round} already has a source at ${target}.${stopped}`,
+      { cause: error },
     );
   }
   // The copy replaces the target only once it is complete, so a failed copy
@@ -162,7 +163,8 @@ export async function openSession(options, { anyAgent = false } = {}) {
   } catch (error) {
     if (!anyAgent) throw error;
   }
-  const register = () => attach(directory, config, (wake ||= detectWake()));
+  const register = () =>
+    attach(directory, config, { wake: (wake ||= detectWake()) });
   // Only pair start creates a session, so a mistyped path fails here instead
   // of starting a session outside sessions/ that no hub loads again.
   requireValue(
@@ -334,7 +336,8 @@ export async function start(options) {
       await exists(path.join(directory, "status.json")),
       `No pair session at ${directory}. Check the path, or run pair start --title "…" without --session-dir to create a new session.`,
     );
-  const started = await attach(directory, config, wake, {
+  const started = await attach(directory, config, {
+    wake,
     start: true,
     folder: process.cwd(),
     ...(from

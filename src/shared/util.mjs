@@ -10,9 +10,11 @@ export const exists = async (file) =>
 export const read = async (file) => JSON.parse(await fs.readFile(file, "utf8"));
 export const timestamp = () => new Date().toISOString();
 // The hub adds details to the JSON it answers a refused request with.
-export function requireValue(condition, message, code = 400, details) {
-  if (!condition)
-    throw Object.assign(new Error(message), { statusCode: code, details });
+export function requireValue(condition, message, codeOrOptions = 400) {
+  if (condition) return;
+  const { code = 400, details } =
+    typeof codeOrOptions === "number" ? { code: codeOrOptions } : codeOrOptions;
+  throw Object.assign(new Error(message), { statusCode: code, details });
 }
 // Windows refuses to replace a file while anything has it open, and the search
 // store reads these files, so a refused rename waits for the reader to finish.

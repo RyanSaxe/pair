@@ -11,7 +11,9 @@ const listedEvents = async (origin, id) =>
     (item) => item.id === id,
   ).events;
 const described = (events) =>
-  events.map(({ id, at, words, question, ...rest }) => rest);
+  events.map(
+    ({ id: _id, at: _at, words: _words, question: _question, ...rest }) => rest,
+  );
 
 test("a session's start, a round that finishes and a reply each add one event, and a new hub keeps them", async (t) => {
   const h = await hub(t);

@@ -39,6 +39,8 @@
     "screenshots": "node scripts/screenshots.mjs"
   },
   "devDependencies": {
+    "oxfmt": "0.80.0",
+    "oxlint": "1.95.0",
     "playwright-core": "1.63.0"
   }
 }

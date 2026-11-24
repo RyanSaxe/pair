@@ -84,7 +84,7 @@ async function act(session, action, data) {
   return body;
 }
 
-async function publish(session, round, sent, count = round.pages.length) {
+async function publish(session, round, { sent, count = round.pages.length }) {
   const agreed = {
     id: "agreed",
     title: "Agreed so far",
@@ -107,7 +107,7 @@ async function publish(session, round, sent, count = round.pages.length) {
     });
 }
 
-export async function until(page, step, predicate, arg) {
+export async function until(page, step, { predicate, arg } = {}) {
   try {
     await page.waitForFunction(predicate, arg);
   } catch (error) {
@@ -116,17 +116,18 @@ export async function until(page, step, predicate, arg) {
 }
 
 export async function ready(page) {
-  await until(page, "Rendering the page's figures", () =>
-    [
-      ...document.querySelectorAll(
-        "#page-content :is([data-language], [data-diagram], [data-math], [data-chart])",
+  await until(page, "Rendering the page's figures", {
+    predicate: () =>
+      [
+        ...document.querySelectorAll(
+          "#page-content :is([data-language], [data-diagram], [data-math], [data-chart])",
+        ),
+      ].every(
+        (element) =>
+          element.nextElementSibling?.matches(".renderer-error") ||
+          element.querySelector(".shiki, .katex, svg, canvas"),
       ),
-    ].every(
-      (element) =>
-        element.nextElementSibling?.matches(".renderer-error") ||
-        element.querySelector(".shiki, .katex, svg, canvas"),
-    ),
-  );
+  });
   const errors = await page
     .locator(".renderer-error:visible")
     .allTextContents();
@@ -139,12 +140,11 @@ export async function ready(page) {
 async function visit(page, url, id) {
   await page.goto("about:blank");
   await page.goto(`${url}#${id}`);
-  await until(
-    page,
-    `Opening page ${id}`,
-    (id) => document.getElementById("page-content")?.dataset.pageId === id,
-    id,
-  );
+  await until(page, `Opening page ${id}`, {
+    predicate: (pageId) =>
+      document.getElementById("page-content")?.dataset.pageId === pageId,
+    arg: id,
+  });
   await ready(page);
 }
 // The frame words each time relative to the browser's clock, so a picture would
@@ -164,13 +164,11 @@ export async function load(page, url, id) {
 // counted() waits until the sessions badge counts the second session and the
 // bell lists that session's round and the agent's reply.
 async function counted(page) {
-  await until(
-    page,
-    "Counting the sessions and the notifications",
-    () =>
+  await until(page, "Counting the sessions and the notifications", {
+    predicate: () =>
       document.getElementById("sessions-count").textContent === "1" &&
       document.getElementById("bell-count").textContent === "2",
-  );
+  });
 }
 
 // settled() retakes a screenshot until two in a row match, so a late layout or
@@ -194,12 +192,11 @@ export async function inThemes(page, clip) {
   const shots = {};
   for (const theme of themes) {
     await page.emulateMedia({ colorScheme: theme });
-    await until(
-      page,
-      `Switching to the ${theme} theme`,
-      (theme) => document.documentElement.dataset.theme === theme,
-      theme,
-    );
+    await until(page, `Switching to the ${theme} theme`, {
+      predicate: (targetTheme) =>
+        document.documentElement.dataset.theme === targetTheme,
+      arg: theme,
+    });
     await ready(page);
     shots[theme] = await settled(page, { animations: "disabled", clip });
   }
@@ -213,7 +210,7 @@ export async function inThemes(page, clip) {
 // whole pixels so that lines never land between two.
 async function scrollTo(page, selector, { bottom = false } = {}) {
   await page.evaluate(
-    async ([selector, bottom]) => {
+    async ([targetSelector, alignBottom]) => {
       const column = [
         document.querySelector("main"),
         document.querySelector(".app-body"),
@@ -221,11 +218,13 @@ async function scrollTo(page, selector, { bottom = false } = {}) {
         /auto|scroll/.test(getComputedStyle(element).overflowY),
       );
       for (let still = 0, tries = 0; still < 6 && tries < 100; tries++) {
-        const box = document.querySelector(selector).getBoundingClientRect();
+        const box = document
+          .querySelector(targetSelector)
+          .getBoundingClientRect();
         const before = column.scrollTop;
         column.scrollTop = Math.round(
           before +
-            (bottom
+            (alignBottom
               ? box.bottom - (innerHeight - 54)
               : box.top - column.getBoundingClientRect().top - 6),
         );
@@ -246,7 +245,7 @@ async function scrollTo(page, selector, { bottom = false } = {}) {
 // the selected range.
 export async function select(page, words) {
   await ready(page);
-  await page.evaluate((words) => {
+  await page.evaluate((targetWords) => {
     const content = document.getElementById("page-content");
     const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
     const nodes = [];
@@ -256,28 +255,26 @@ export async function select(page, words) {
       nodes.push({ node, start: text.length });
       text += node.data;
     }
-    const at = text.indexOf(words);
-    if (at < 0) throw new Error(`No text on the page reads: ${words}`);
+    const at = text.indexOf(targetWords);
+    if (at < 0) throw new Error(`No text on the page reads: ${targetWords}`);
     const point = (offset) => {
       const hit = nodes.findLast((item) => item.start <= offset);
       return [hit.node, offset - hit.start];
     };
     const range = document.createRange();
     range.setStart(...point(at));
-    range.setEnd(...point(at + words.length - 1));
+    range.setEnd(...point(at + targetWords.length - 1));
     range.setEnd(range.endContainer, range.endOffset + 1);
     getSelection().removeAllRanges();
     getSelection().addRange(range);
   }, words);
-  await until(
-    page,
-    `Selecting "${words}"`,
-    (words) =>
+  await until(page, `Selecting "${words}"`, {
+    predicate: (targetWords) =>
       getSelection().rangeCount === 1 &&
-      getSelection().getRangeAt(0).toString() === words &&
+      getSelection().getRangeAt(0).toString() === targetWords &&
       document.getElementById("comment-here").dataset.on === "selection",
-    words,
-  );
+    arg: words,
+  });
 }
 
 export async function writeNote(page, text) {
@@ -293,8 +290,8 @@ export async function writeNote(page, text) {
 }
 
 async function send(page, session) {
-  const response = page.waitForResponse((response) =>
-    response.url().endsWith("/api/feedback"),
+  const response = page.waitForResponse((res) =>
+    res.url().endsWith("/api/feedback"),
   );
   await page.locator("#submit").click();
   await page.locator("#send-dialog[open]").waitFor();
@@ -306,15 +303,16 @@ async function send(page, session) {
   return (await act(session, "read")).event;
 }
 
+const pngDataUri = (png) => `data:image/png;base64,${png.toString("base64")}`;
+
 // compose() lays out the window with the phone beside it, scaled to the
 // window's height, as in the README's first screenshots. The sheet uses
 // deviceScaleFactor 1, so the window's screenshot keeps its pixels.
-async function compose(browser, windowShot, phoneShot, theme) {
+async function compose(browser, { windowShot, phoneShot, theme }) {
   const sheet = await browser.newPage({
     viewport: { width: 3222, height: 1664 },
     deviceScaleFactor: 1,
   });
-  const src = (png) => `data:image/png;base64,${png.toString("base64")}`;
   const ground = theme === "light" ? "#e8e8ec" : "#16161a";
   const edge = theme === "light" ? "rgba(0,0,0,.12)" : "rgba(255,255,255,.14)";
   await sheet.setContent(`<style>
@@ -322,7 +320,7 @@ async function compose(browser, windowShot, phoneShot, theme) {
     div { display: flex; gap: 56px; padding: 72px; align-items: flex-start; }
     img { display: block; height: 1520px; border-radius: 20px; box-shadow: 0 0 0 2px ${edge}, 0 12px 40px rgba(0,0,0,.18); }
     img + img { border-radius: 44px; }
-  </style><div><img src="${src(windowShot)}"><img src="${src(phoneShot)}"></div>`);
+  </style><div><img src="${pngDataUri(windowShot)}"><img src="${pngDataUri(phoneShot)}"></div>`);
   const png = await sheet.screenshot();
   await sheet.close();
   return png;
@@ -346,7 +344,7 @@ export async function stage(t, scratch) {
       images.set(`${name}-${theme}.png`, shots[theme]);
   };
 
-  await publish(session, await loadRound(1), sent);
+  await publish(session, await loadRound(1), { sent });
   const page = watch(
     await open(t, "about:blank", { viewport: desktop, deviceScaleFactor: 2 }),
     "demo",
@@ -360,7 +358,7 @@ export async function stage(t, scratch) {
   // The frame marks every event from the bell's first poll as seen, so the
   // second session starts after that poll.
   await page.locator("#bell").waitFor();
-  await publish(await h.session({ start: true }), waiting, sent);
+  await publish(await h.session({ start: true }), waiting, { sent });
   await page
     .locator('[data-choice="start"] [data-value="note-dialog"]')
     .click();
@@ -372,19 +370,17 @@ export async function stage(t, scratch) {
   await page.locator("#note-save").click();
   sent[1] = await send(page, session);
 
-  await publish(session, await loadRound(2), sent);
+  await publish(session, await loadRound(2), { sent });
   await load(page, url, "where-a-reply-appears");
   const decision = page.locator('[data-choice="answer"]');
   await decision.locator('[data-vd-layout="columns"]').click();
   await decision.locator('[data-value="under"]').click();
   await decision.locator(".vd-head h3").click();
-  await until(
-    page,
-    "Commenting on the decision",
-    () =>
+  await until(page, "Commenting on the decision", {
+    predicate: () =>
       document.getElementById("comment-here").getAttribute("aria-label") ===
       "Comment on this decision",
-  );
+  });
   await writeNote(page, "Does the agent stop what it's doing to answer?");
   const started = page.waitForResponse((response) =>
     response.url().endsWith("/api/threads"),
@@ -420,14 +416,12 @@ export async function stage(t, scratch) {
   await page.locator("#search-button").click();
   await page.locator(".search-input").fill("thread.target");
   await page.locator(".search-frame.is-shown").waitFor();
-  await until(
-    page,
-    "Highlighting the words in the preview",
-    () =>
+  await until(page, "Highlighting the words in the preview", {
+    predicate: () =>
       document
         .querySelector(".search-frame.is-shown")
         .contentWindow.CSS.highlights.get("plan-search")?.size > 0,
-  );
+  });
   save("docs/assets/search", await inThemes(page));
   await page.keyboard.press("Escape");
   await page.locator("#search-dialog").waitFor({ state: "hidden" });
@@ -439,7 +433,7 @@ export async function stage(t, scratch) {
 
   sent[2] = await send(page, session);
   const third = await loadRound(3);
-  await publish(session, third, sent, 1);
+  await publish(session, third, { sent, count: 1 });
   await act(session, "ack", { note: "Reading your thread replies" });
   await load(page, url, "agreed");
   await page.getByText("2 of 4 pages ready").waitFor();
@@ -480,12 +474,11 @@ export async function stage(t, scratch) {
   for (const theme of themes)
     images.set(
       `assets/pair-${theme}.png`,
-      await compose(
-        page.context().browser(),
-        windows[theme],
-        phones[theme],
+      await compose(page.context().browser(), {
+        windowShot: windows[theme],
+        phoneShot: phones[theme],
         theme,
-      ),
+      }),
     );
   return images;
 }

@@ -106,6 +106,20 @@ async function bell(page) {
   await page.locator("#bell").click();
   await page.locator("#center-list .session-row").click();
 }
+const onCurrent = async (page, address, heading) => {
+  // The bell shows after the first poll, the point at which the frame moves
+  // to any round the address asks for.
+  await bellReady(page);
+  await afterLoad(page);
+  assert.equal(
+    await page.locator("#current-tab").getAttribute("aria-selected"),
+    "true",
+    address,
+  );
+  await title(page, heading);
+  assert.equal(new URL(page.url()).searchParams.get("round"), null, address);
+  await page.close();
+};
 
 test("a loaded session draws its header from the answers in its page", async (t) => {
   const s = await setup(t);
@@ -120,7 +134,7 @@ test("a loaded session draws its header from the answers in its page", async (t)
   // include it.
   await bellReady(page);
   assert.deepEqual(
-    asked.filter((path) => /\/api\/(status|sessions)$/.test(path)),
+    asked.filter((pathname) => /\/api\/(status|sessions)$/.test(pathname)),
     [],
   );
 });
@@ -219,20 +233,6 @@ test("after an older round was open, an address that doesn't name it opens Curre
   const older = await context.newPage();
   await older.goto(s.url("?round=1"));
   await selected(older, "past");
-  const onCurrent = async (page, address, heading) => {
-    // The bell shows after the first poll, the point at which the frame moves
-    // to any round the address asks for.
-    await bellReady(page);
-    await afterLoad(page);
-    assert.equal(
-      await page.locator("#current-tab").getAttribute("aria-selected"),
-      "true",
-      address,
-    );
-    await title(page, heading);
-    assert.equal(new URL(page.url()).searchParams.get("round"), null, address);
-    await page.close();
-  };
   for (const [address, heading] of [
     ["", "Agreed so far"],
     ["#overview", "Overview"],
@@ -446,9 +446,9 @@ test("the left tab reads Last round for the round before Current's, and Round 1 
   await page
     .locator("#past-tab:not([disabled])", { hasText: "Last round" })
     .waitFor();
-  const choose = async (round) => {
+  const choose = async (label) => {
     await page.locator("#round").click();
-    await page.locator("#round-list button", { hasText: round }).click();
+    await page.locator("#round-list button", { hasText: label }).click();
   };
   // The frame selects a tab and shows its page in one step, so once the tab
   // is selected the title is the chosen round's page.
@@ -576,9 +576,9 @@ test("Review and Work opened from their addresses keep focus on their heading an
       await afterLoad(page);
       seen.push(
         await page.evaluate(
-          ([width, hash]) => ({
-            width,
-            hash,
+          ([viewportWidth, fragment]) => ({
+            width: viewportWidth,
+            hash: fragment,
             focus: document.activeElement.id,
             // The frame scrolls the page in main above 720px and in .app-body
             // below 720px.

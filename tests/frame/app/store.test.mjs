@@ -77,13 +77,20 @@ test("a touched, unsent list carries over to the next round", () => {
   assert.equal(unsentItems(next).count, 1);
 });
 
+const draftNote = (id) => ({
+  id,
+  topic: "p",
+  anchor: "P",
+  quote: "",
+  text: id,
+});
+
 test("the Review line names the comments and choices behind the count", () => {
   const draft = emptyDraft("1");
   assert.equal(draftedWords(draft), "");
-  const note = (id) => ({ id, topic: "p", anchor: "P", quote: "", text: id });
-  draft.notes.push(note("a"));
+  draft.notes.push(draftNote("a"));
   assert.equal(draftedWords(draft), "1 comment");
-  draft.notes.push(note("b"), note("c"));
+  draft.notes.push(draftNote("b"), draftNote("c"));
   draft.choices["d/pick"] = { topic: "d", label: "Pick", value: "x" };
   assert.equal(draftedWords(draft), "3 comments and 1 choice");
   // draftedWords counts a written answer as a comment, and it skips a checklist

@@ -61,7 +61,10 @@ test("two sessions on one hub isolate tokens, events, and acknowledgements", asy
     403,
   );
   const listed = (await a.request("/api/sessions")).body.sessions;
-  assert.deepEqual(listed.map((item) => item.id).sort(), [a.id, b.id].sort());
+  assert.deepEqual(
+    listed.map((item) => item.id).toSorted(),
+    [a.id, b.id].toSorted(),
+  );
 });
 
 test("the hub lists open sessions needs-you first, and a paused one stays listed as paused", async (t) => {

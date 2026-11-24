@@ -157,7 +157,7 @@ export function installControls() {
     answerTimer = setTimeout(save, 300);
   });
 }
-export function recordAnswer(id, text, label, target) {
+export function recordAnswer({ id, text, label, target }) {
   if (!feedbackEditable()) return;
   const key = controlKey(page.id, id);
   if (text.trim())

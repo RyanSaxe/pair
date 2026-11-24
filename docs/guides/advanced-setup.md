@@ -1,7 +1,7 @@
 # Advanced setup
 
-Optional setup for pair beyond installing it: a launch script that opens a
-new agent for you, messaging between agent sessions, your own text in pair's
+Optional setup for pair beyond installing it: a launch script that opens a new
+agent for you, messaging between agent sessions, your own text in pair's
 instructions, and your own components.
 
 ## Start agent and pair spawn: the launch script
@@ -15,13 +15,12 @@ message runs:
 ~/.config/pair/spawn DIR COMMAND ARG…
 ```
 
-`DIR` is the folder where your agent ran `pair start`. `COMMAND ARG…` starts
-the same agent CLI with a prompt to run `pair guide` and then
-`pair start --from` for the proposal. pair passes each part as its own
-argument, with no shell between, so the script receives the prompt exactly as
-pair wrote it. The script must open the command in a new terminal and exit
-within 10 seconds. Without a script, Start offers Open a new agent session
-and Copy command.
+`DIR` is the folder where your agent ran `pair start`. `COMMAND ARG…` starts the
+same agent CLI with a prompt to run `pair guide` and then `pair start --from`
+for the proposal. pair passes each part as its own argument, with no shell
+between, so the script receives the prompt exactly as pair wrote it. The script
+must open the command in a new terminal and exit within 10 seconds. Without a
+script, Start offers Open a new agent session and Copy command.
 
 With a message, Start agent asks your session's agent to start the new agent
 instead, so a message such as “claude opus, max effort” starts it in that CLI
@@ -55,8 +54,8 @@ chmod +x "$file"
 open -a Terminal "$file"
 ```
 
-Windows, in a new console window, as `~/.config/pair/spawn.ps1`. No one has
-run this example on Windows yet:
+Windows, in a new console window, as `~/.config/pair/spawn.ps1`. No one has run
+this example on Windows yet:
 
 ```powershell
 $dir = $args[0]
@@ -68,10 +67,9 @@ $arguments = $args | Select-Object -Skip 2 | ForEach-Object {
 Start-Process -FilePath $command -ArgumentList $arguments -WorkingDirectory $dir
 ```
 
-`pair spawn` runs the same script from a terminal or from an agent, and
-prints the name that `pair message --to` takes. It passes the arguments after
-`--` to the CLI, as [`pair spawn`](../reference/commands.md#pair-spawn)
-describes:
+`pair spawn` runs the same script from a terminal or from an agent, and prints
+the name that `pair message --to` takes. It passes the arguments after `--` to
+the CLI, as [`pair spawn`](../reference/commands.md#pair-spawn) describes:
 
 ```console
 $ pair spawn codex --dir ~/code/shop --prompt "Fix the failing checkout test." -- -m gpt-5.5
@@ -80,8 +78,8 @@ Started shop-3f (Codex) in ~/code/shop. Message it with: pair message --to shop-
 
 ## Messaging between agent sessions
 
-`pair message` lets an agent in Claude Code, Codex, Copilot CLI, pi, opencode
-or Antigravity CLI message a running session of any of them.
+`pair message` lets an agent in Claude Code, Codex, Copilot CLI, pi, opencode or
+Antigravity CLI message a running session of any of them.
 [Commands](../reference/commands.md) describes `pair register`, `pair agents`
 and `pair message`.
 
@@ -95,8 +93,8 @@ $ pair message --to fix-login-3f --text "The session table now has a revoked_at 
 Sent to fix-login-3f (Claude Code). It reads the message at once if it is idle, and otherwise between the steps of its current turn.
 ```
 
-A session appears in `pair agents` once a `pair` command runs inside it. To
-list every session as it starts, add the start hook for each CLI you use:
+A session appears in `pair agents` once a `pair` command runs inside it. To list
+every session as it starts, add the start hook for each CLI you use:
 
 | CLI             | Start hook                                                                                                                                                                                                                                                                                                                                                                  |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -118,10 +116,10 @@ there if you have nothing to say. Never answer an acknowledgement.
 
 ## Your own text in pair's instructions
 
-pair prints its instructions to the agent from the files in its `guide/`
-folder: `pair guide` prints `guide/pair.md`, and each command prints the file
-of its moment from `guide/moments/`. When `~/.config/pair/` has a file with the
-same path, pair prints yours after its own:
+pair prints its instructions to the agent from the files in its `guide/` folder:
+`pair guide` prints `guide/pair.md`, and each command prints the file of its
+moment from `guide/moments/`. When `~/.config/pair/` has a file with the same
+path, pair prints yours after its own:
 
 ```text
 ~/.config/pair/
@@ -136,8 +134,7 @@ file name.
 
 ## Your own components
 
-A component is a block a page can use, such as a decision or a diagram. Put
-your own in `~/.config/pair/components/NAME/`, and every page you build can use
-it. A component with the same name as one of pair's replaces it.
-`pair components` lists both, and `pair guide components/README.md` prints how
-to write one.
+A component is a block a page can use, such as a decision or a diagram. Put your
+own in `~/.config/pair/components/NAME/`, and every page you build can use it. A
+component with the same name as one of pair's replaces it. `pair components`
+lists both, and `pair guide components/README.md` prints how to write one.

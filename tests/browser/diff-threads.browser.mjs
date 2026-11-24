@@ -79,7 +79,11 @@ async function selectDiffText(page, quote) {
   await page.mouse.up();
 }
 
-async function startThread(page, session, quote, side, lineThreadCount = 1) {
+async function startThread(
+  page,
+  session,
+  { quote, side, lineThreadCount = 1 },
+) {
   await selectDiffText(page, quote);
   await page.getByRole("button", { name: "Comment on selection" }).waitFor();
   await page.getByRole("button", { name: "Comment on selection" }).click();
@@ -157,15 +161,28 @@ async function openDiff(t) {
 test("selecting diff text starts a thread in its line annotation", async (t) => {
   const { session, page } = await openDiff(t);
   if (!page) return;
-  await startThread(page, session, 'return "open"', "additions");
-  await startThread(page, session, 'return "hold"', "deletions");
-  await startThread(page, session, "open", "additions", 2);
+  await startThread(page, session, {
+    quote: 'return "open"',
+    side: "additions",
+  });
+  await startThread(page, session, {
+    quote: 'return "hold"',
+    side: "deletions",
+  });
+  await startThread(page, session, {
+    quote: "open",
+    side: "additions",
+    lineThreadCount: 2,
+  });
 });
 
 test("the reply box of a thread on a diff line keeps focus across status polls", async (t) => {
   const { session, page } = await openDiff(t);
   if (!page) return;
-  const card = await startThread(page, session, 'return "open"', "additions");
+  const card = await startThread(page, session, {
+    quote: 'return "open"',
+    side: "additions",
+  });
   const box = card.getByRole("textbox", { name: "Reply in this thread" });
   await box.click();
   for (let polls = 0; polls < 2; polls++)

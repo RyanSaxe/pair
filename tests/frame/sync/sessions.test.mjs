@@ -15,9 +15,16 @@ const entry = (id, fields = {}) => ({
   ...fields,
 });
 
+const none = () => 0;
+const newIn = (ids) => (item) => (ids.includes(item.id) ? 2 : 0);
+const rows = (list) =>
+  groupSessions(list).map(({ entry: item, depth }) => [
+    item.id,
+    depth,
+    Boolean(item.closed),
+  ]);
+
 test("the sessions badge counts the other sessions with something unseen, and otherwise the other live sessions in grey", () => {
-  const none = () => 0;
-  const newIn = (ids) => (item) => (ids.includes(item.id) ? 2 : 0);
   const waiting = (id) =>
     entry(id, {
       needsYou: true,
@@ -63,10 +70,17 @@ test("the sessions badge counts the other sessions with something unseen, and ot
     [[waiting("1"), entry("2")], newIn(["1"]), [], 1, ""],
   ];
   for (const [list, unopened, cleared, count, tone] of cases)
-    assert.deepEqual(sessionsBadge(list, "1", unopened, new Set(cleared)), {
-      count,
-      tone,
-    });
+    assert.deepEqual(
+      sessionsBadge(list, {
+        thisId: "1",
+        unopened,
+        cleared: new Set(cleared),
+      }),
+      {
+        count,
+        tone,
+      },
+    );
 });
 
 test("sessions keep the order they started in, and w reaches the next waiting one after this tab, wrapping", () => {
@@ -106,12 +120,6 @@ test("a row shows the first status that applies", () => {
 // groupSessions orders sibling sub-sessions by start time, so session 2 comes
 // before session 4.
 test("Sessions lists each sub-session after its parent, one step in, under a closed parent's heading", () => {
-  const rows = (list) =>
-    groupSessions(list).map(({ entry, depth }) => [
-      entry.id,
-      depth,
-      Boolean(entry.closed),
-    ]);
   assert.deepEqual(
     rows([
       entry("4", { parentId: "1" }),

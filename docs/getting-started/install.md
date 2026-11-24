@@ -1,7 +1,7 @@
 # Install
 
-`pair` needs Node 22.23.5 or newer in 22, 24.22.3 or newer in 24, or
-26.13.1 or newer.
+`pair` needs Node 22.23.5 or newer in 22, 24.22.3 or newer in 24, or 26.13.1 or
+newer.
 
 ```sh
 npm install -g @ryansaxe/pair             # the application and the pair command
@@ -21,9 +21,8 @@ Claude Code lists the skill as `/pair`, and Codex as `$pair`.
 | opencode        | opencode 1.17.7 or newer. Add pair's plugin to `"plugin"` in opencode's global config once, then restart opencode. On opencode 2 the plugin is the folder `adapters/opencode`, and on opencode 1 the file `adapters/opencode/plugin.js`. `pair start` prints both paths and the config file to add one to. |
 | Antigravity CLI | Antigravity CLI 1.5.6 or newer. When `npx skills add` asks which agents to install to, select Antigravity CLI. agy asks you to approve each `pair` command unless `~/.gemini/antigravity-cli/settings.json` has `"permissions": {"allow": ["command(pair)"]}`.                                             |
 
-A `codex exec` run needs permission to run `pair` outside Codex's sandbox
-before it starts. The hub can wake a `codex exec` run only while it is
-still running.
+A `codex exec` run needs permission to run `pair` outside Codex's sandbox before
+it starts. The hub can wake a `codex exec` run only while it is still running.
 
 Copilot CLI asks "Allow path access" before the agent's first `pair` command
 that includes the session's directory, because that directory is under pair's
@@ -34,20 +33,19 @@ with `--add-dir` to allow pair's state directory:
 copilot --ui-server --add-dir ~/.local/state/pair
 ```
 
-When you set `XDG_STATE_HOME`, pair's state directory is
-`$XDG_STATE_HOME/pair`. Copilot CLI 1.0.92 has no config setting that allows a
-directory, so put both flags in a shell alias to use them in every session.
-Use `--add-dir` rather than `--allow-all-paths`, which turns off Copilot's
-path check for every directory.
+When you set `XDG_STATE_HOME`, pair's state directory is `$XDG_STATE_HOME/pair`.
+Copilot CLI 1.0.92 has no config setting that allows a directory, so put both
+flags in a shell alias to use them in every session. Use `--add-dir` rather than
+`--allow-all-paths`, which turns off Copilot's path check for every directory.
 
 ## Good to know
 
 - `npx skills add` may print
   `✗ pair → PromptScript: PromptScript does not support global skill installation`.
   That message is about another agent, and the skill is still installed.
-- If you already have a different skill named pair, rename it first, both
-  its folder and the `name` in its `SKILL.md`. Otherwise `npx skills add`
-  replaces it after it asks "Proceed with installation?".
+- If you already have a different skill named pair, rename it first, both its
+  folder and the `name` in its `SKILL.md`. Otherwise `npx skills add` replaces
+  it after it asks "Proceed with installation?".
 
 ## Update
 
@@ -55,6 +53,5 @@ Run `npm update -g @ryansaxe/pair`. You never need to reinstall the skill,
 because the skill contains only the instruction to run `pair guide`, which
 prints the instructions of the `pair` you have installed.
 
-Before you update from 0.2 to 0.3, close every open session. Version 0.3
-cannot read the side work, offers or accepted plans that earlier versions
-stored.
+Before you update from 0.2 to 0.3, close every open session. Version 0.3 cannot
+read the side work, offers or accepted plans that earlier versions stored.

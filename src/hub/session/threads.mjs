@@ -55,6 +55,12 @@ function wakeNote(message) {
   return `\n\n${note}`;
 }
 
+// shown sends only ok and through of the thread's last wake, which the
+// frame's threadState reads, because its reason can contain the holder's
+// socket path.
+const shown = ({ wake, ...thread }) =>
+  wake ? { ...thread, wake: { ok: wake.ok, through: wake.through } } : thread;
+
 // A thread is a note that the reviewer sends to the agent at once, with the
 // replies under it. No thread action changes the round.
 export function threads(session) {
@@ -67,15 +73,10 @@ export function threads(session) {
     thread.updatedAt = timestamp();
     await atomic(path.join(directory, "threads", `${thread.id}.json`), thread);
   }
-  // shown sends only ok and through of the thread's last wake, which the
-  // frame's threadState reads, because its reason can contain the holder's
-  // socket path.
-  const shown = ({ wake, ...thread }) =>
-    wake ? { ...thread, wake: { ok: wake.ok, through: wake.through } } : thread;
   const images = replyImages(session.base);
   const threadView = () =>
     [...records.values()]
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .toSorted((a, b) => a.createdAt.localeCompare(b.createdAt))
       .map((thread) => images.lighten(shown(thread)));
   // The frame sends the topic overall for Review's overall comment and work
   // for the Work page.
@@ -97,19 +98,19 @@ export function threads(session) {
       Array.isArray(attachments),
       "A message's attachments must be an array",
     );
-    const images = [];
+    const storedImages = [];
     for (const item of attachments) {
       requireValue(
         item && typeof item.id === "string",
         "An attachment needs its image ID",
       );
-      images.push(await session.storedAttachment(item));
+      storedImages.push(await session.storedAttachment(item));
     }
     return {
       from: "reviewer",
       at: timestamp(),
       text: data.text.trim(),
-      ...(images.length ? { attachments: images } : {}),
+      ...(storedImages.length ? { attachments: storedImages } : {}),
     };
   }
   // The hub wakes the holder for each of the reviewer's messages, except one
@@ -249,7 +250,7 @@ export function threads(session) {
     wakeLater(thread);
     return { thread: shown(thread) };
   }
-  async function agentThread(card, text) {
+  async function agentThread(card, body) {
     open();
     const at = timestamp();
     const thread = {
@@ -259,7 +260,7 @@ export function threads(session) {
       page: card.title,
       readAt: null,
       createdAt: at,
-      messages: [{ from: "reviewer", at, text }],
+      messages: [{ from: "reviewer", at, text: body }],
     };
     records.set(thread.id, thread);
     await saveThread(thread);
@@ -476,20 +477,23 @@ export function threads(session) {
           ...thread.messages.map((item) => item.acknowledgedAt),
         ]
           .filter(Boolean)
-          .sort()
+          .toSorted()
           .at(-1);
         return { thread, latest, acknowledged, last };
       })
       .filter(({ latest, last }) => latest && (!at || last > at))
-      .sort((a, b) => a.last.localeCompare(b.last))
-      .map(({ thread, latest, acknowledged }) => ({
-        id: thread.id,
-        topic: thread.topic,
-        proposal: thread.proposal,
-        messages: thread.messages.length,
-        latest: latest.text,
-        ...(acknowledged.length ? { acknowledged } : {}),
-      }));
+      .toSorted((a, b) => a.last.localeCompare(b.last))
+      .map(({ thread, latest, acknowledged }) => {
+        const entry = {
+          id: thread.id,
+          topic: thread.topic,
+          proposal: thread.proposal,
+          messages: thread.messages.length,
+          latest: latest.text,
+        };
+        if (acknowledged.length) entry.acknowledged = acknowledged;
+        return entry;
+      });
   }
   // The agent can cite a thread that settled a decision in Agreed's source,
   // as it cites a note.
@@ -507,7 +511,7 @@ export function threads(session) {
     if (!accepts(session.state, "wake")) return null;
     const waiting = [...records.values()]
       .filter((thread) => waitingMessage(thread))
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      .toSorted((a, b) => a.createdAt.localeCompare(b.createdAt));
     if (!waiting.length) return null;
     const named = waiting.map((thread) => `${thread.id} on "${thread.page}"`);
     if (named.length === 1)

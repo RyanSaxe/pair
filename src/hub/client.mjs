@@ -63,7 +63,7 @@ function hubRunning(pid) {
   } catch {
     return true;
   }
-  return !command || /cli\.mjs hub$/.test(command);
+  return !command || command.endsWith("cli.mjs hub");
 }
 export const portOpen = (port) =>
   new Promise((resolve) => {
@@ -206,8 +206,8 @@ async function findHub(config) {
   // A hub of another state directory cannot serve this one's sessions, so
   // findHub treats it as no hub. A hub too old to send stateDir counts as
   // this directory's hub.
-  const ownHub = async (port) => {
-    const info = await hubInfo(port, record);
+  const ownHub = async (targetPort) => {
+    const info = await hubInfo(targetPort, record);
     return info && (info.stateDir ?? stateDir) === stateDir ? info : null;
   };
   let info = port ? await ownHub(port) : null;
@@ -256,16 +256,16 @@ async function replaceHub(config, { record, info }) {
   }
   return spawnHub(config);
 }
+const withOrigin = (info) => ({
+  ...info,
+  origin: `http://127.0.0.1:${info.port}`,
+});
 // checked is true once ensureHub has run in this command, so that the command
 // checks the hub's code once and prints keptLine() at most once.
 let checked = false;
 export const hubChecked = () => checked;
 export async function ensureHub(config = settings()) {
   checked = true;
-  const withOrigin = (info) => ({
-    ...info,
-    origin: `http://127.0.0.1:${info.port}`,
-  });
   // While another command starts or replaces the hub, the hub's record and
   // port change, so ensureHub waits until that command finishes.
   await lockReleased(config);
@@ -281,7 +281,7 @@ export async function ensureHub(config = settings()) {
     return withOrigin(await replaceHub(config, now));
   });
 }
-export async function attach(directory, config, wake, extra = {}) {
+export async function attach(directory, config, { wake, ...extra }) {
   const hub = await ensureHub(config);
   const record = await readRecord(config);
   requireValue(

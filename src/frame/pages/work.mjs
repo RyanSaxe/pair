@@ -201,7 +201,7 @@ function actions(card) {
   const button = (className, label, run) => {
     const node = element("button", className, label);
     node.type = "button";
-    node.onclick = run;
+    node.addEventListener("click", run);
     return node;
   };
   const left = element("span", "proposal-foot-start");
@@ -223,9 +223,7 @@ function actions(card) {
 }
 export function cardElement(
   card,
-  shown = context(),
-  fresh = false,
-  stays = false,
+  { shown = context(), fresh = false, stays = false } = {},
 ) {
   const root = element("article", "proposal-card");
   root.dataset.proposalCard = card.id;
@@ -358,11 +356,16 @@ const openForm = () =>
     markSeen(session.sessionId, [id]);
     changed(result, id);
   });
+const wiredWorkControls = new WeakSet();
 function renderWork(groups, shown, seen) {
-  $("work-new").hidden = !cardsEditable();
-  $("work-new").onclick = openForm;
-  const tabs = $("work-tabs");
-  tabs.replaceChildren(
+  const newButton = $("work-new");
+  newButton.hidden = !cardsEditable();
+  if (!wiredWorkControls.has(newButton)) {
+    wiredWorkControls.add(newButton);
+    newButton.addEventListener("click", openForm);
+  }
+  const tabBar = $("work-tabs");
+  tabBar.replaceChildren(
     ...workTabs.map(({ id, label }) => {
       const tab = element("button", "work-tab");
       tab.type = "button";
@@ -375,16 +378,21 @@ function renderWork(groups, shown, seen) {
         label,
         element("span", "work-count", String(groups[id].length)),
       );
-      tab.onclick = () => selectTab(id);
+      tab.addEventListener("click", () => selectTab(id));
       return tab;
     }),
   );
-  tabs.onkeydown = (event) => {
-    const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
-    if (!step) return;
-    const index = workTabs.findIndex(({ id }) => id === selected);
-    selectTab(workTabs[(index + step + workTabs.length) % workTabs.length].id);
-  };
+  if (!wiredWorkControls.has(tabBar)) {
+    wiredWorkControls.add(tabBar);
+    tabBar.addEventListener("keydown", (event) => {
+      const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+      if (!step) return;
+      const index = workTabs.findIndex(({ id }) => id === selected);
+      selectTab(
+        workTabs[(index + step + workTabs.length) % workTabs.length].id,
+      );
+    });
+  }
   $("work-error").textContent = failure;
   $("work-error").hidden = !failure;
   const list = $("work-cards");
@@ -398,12 +406,11 @@ function renderWork(groups, shown, seen) {
   list.replaceChildren(
     ...(listed.length
       ? listed.map((card) => {
-          const node = cardElement(
-            card,
+          const node = cardElement(card, {
             shown,
-            marked.has(card.id) && labelled(card),
-            staying.has(card.id),
-          );
+            fresh: marked.has(card.id) && labelled(card),
+            stays: staying.has(card.id),
+          });
           // A bell line links to the card by this ID.
           node.id = `proposal-${card.id}`;
           return node;
@@ -445,7 +452,7 @@ function paintProposal(root, seen = seenCards()) {
   if (mounted.get(root) === key) return;
   mounted.set(root, key);
   root.dataset.proposalCard = card.id;
-  root.replaceChildren(cardElement(card, shown, fresh));
+  root.replaceChildren(cardElement(card, { shown, fresh }));
 }
 export function refreshWork(force = false) {
   if (remote && !embedded) adoptCards(session.sessionId, cards());

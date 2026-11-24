@@ -26,13 +26,21 @@ const facts = () => ({
 // sent is true when this browser or another sent the round, and openRound
 // while the agent is still publishing its pages.
 export function sendState(
-  { editable, closed, sending, sent, openRound, connected, failed } = facts(),
+  {
+    editable: isEditable,
+    closed,
+    sending,
+    sent,
+    openRound,
+    connected: isConnected,
+    failed,
+  } = facts(),
 ) {
-  if (!editable || closed) return "read-only";
+  if (!isEditable || closed) return "read-only";
   if (sending) return "sending";
   if (sent) return "waiting";
   if (openRound) return "pages-pending";
-  if (!connected) return "unreachable";
+  if (!isConnected) return "unreachable";
   return failed ? "failed" : "editing";
 }
 

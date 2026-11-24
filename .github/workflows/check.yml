@@ -1,10 +1,28 @@
-name: ci
+name: check
 
 on:
   push:
+    branches: [develop, main]
   pull_request:
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.4.0
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/prek
+          key: prek-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+      # Web: the oxfmt and oxlint hooks run from node_modules.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - run: uvx prek@0.5.11 run --all-files --show-diff-on-failure
+
   test:
     # The rulesets of main and develop require these jobs by name, such as
     # test (22.23.5) and test (macos-latest, 26), so a change to the matrix
@@ -78,27 +96,3 @@ jobs:
       - run: npm ci
       - run: npx playwright-core install --with-deps chromium
       - run: npm run test:figures
-
-  format:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          check-latest: true
-      - run: npx --yes prettier@3.9.6 --check .
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          check-latest: true
-      # eslint.config.mjs fails a file over 1000 lines. The second run lists
-      # each file over 600 as a warning and does not fail.
-      - run: npx --yes eslint@10.11.0 .
-      - run: |
-          npx --yes eslint@10.11.0 --rule '{"max-lines": ["warn", 600]}' .

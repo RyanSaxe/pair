@@ -45,12 +45,10 @@ function arrived(row, id) {
 }
 async function whenArrived(row, { page: id, target }) {
   const limit = performance.now() + ARRIVE_LIMIT_MS;
-  while (
-    wanted === target &&
-    performance.now() < limit &&
-    !arrived(row, id || "agreed")
-  )
+  while (performance.now() < limit && !arrived(row, id || "agreed")) {
+    if (wanted !== target) return;
     await new Promise((done) => setTimeout(done, ARRIVE_POLL_MS));
+  }
 }
 /* A note or answer's words are the reader's own, so its block doesn't hold them.
    Its page shows at the block, under the card that holds them. A note on a whole

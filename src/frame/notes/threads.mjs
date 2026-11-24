@@ -76,7 +76,7 @@ function allThreads() {
   return [...byId.values()];
 }
 // post calls saved once the hub has the message, after a retry too.
-async function post(id, url, body, saved) {
+async function post({ id, url, body, saved }) {
   try {
     const response = await fetch(url, {
       method: "POST",
@@ -94,12 +94,12 @@ async function post(id, url, body, saved) {
     sent.set(id, {
       ...sent.get(id),
       error: unreachable(error),
-      retry: () => post(id, url, body, saved),
+      retry: () => post({ id, url, body, saved }),
     });
   }
   placeThreads();
 }
-export function startThread(context, text, attachments, saved) {
+export function startThread(context, text, { attachments = [], saved } = {}) {
   const now = new Date().toISOString();
   const fields = context.proposal
     ? { id: uuid(), proposal: context.proposal }
@@ -122,19 +122,19 @@ export function startThread(context, text, attachments, saved) {
     messages: [{ from: "reviewer", at: now, text, attachments }],
   });
   placeThreads();
-  void post(
-    fields.id,
-    `${base}/api/threads`,
-    {
+  void post({
+    id: fields.id,
+    url: `${base}/api/threads`,
+    body: {
       ...fields,
       text,
       attachments,
     },
     saved,
-  );
+  });
 }
 function sendReply(thread, text, attachments) {
-  const { error, retry, ...rest } = thread;
+  const { error: _error, retry: _retry, ...rest } = thread;
   const replyId = uuid();
   const at = new Date().toISOString();
   sent.set(thread.id, {
@@ -153,11 +153,11 @@ function sendReply(thread, text, attachments) {
       new CustomEvent("pair:reply", { detail: { thread: thread.id, text } }),
     );
   placeThreads();
-  void post(
-    thread.id,
-    `${base}/api/threads/${encodeURIComponent(thread.id)}/messages`,
-    { replyId, text, attachments },
-  );
+  void post({
+    id: thread.id,
+    url: `${base}/api/threads/${encodeURIComponent(thread.id)}/messages`,
+    body: { replyId, text, attachments },
+  });
 }
 
 function when(at) {
@@ -229,11 +229,11 @@ function agentBody(thread, message, index) {
       ? "Show less"
       : `Show all · ${summary || plural(lines, "line")}`;
   };
-  more.onclick = () => {
+  more.addEventListener("click", () => {
     if (opened.has(key)) opened.delete(key);
     else opened.add(key);
     fit();
-  };
+  });
   new ResizeObserver(fit).observe(content);
   fits.set(clamp, fit);
   if (message.html !== undefined) enhance(content);
@@ -298,12 +298,12 @@ function statusLine(thread) {
     if (editable) {
       const retry = element("button", "link-btn", "Try again");
       retry.type = "button";
-      retry.onclick = () => {
-        const { error, retry: again, ...rest } = thread;
+      retry.addEventListener("click", () => {
+        const { error: _error, retry: again, ...rest } = thread;
         sent.set(thread.id, { ...rest });
         placeThreads();
         void again();
-      };
+      });
       line.append(retry);
     }
     box.append(line);
@@ -366,13 +366,13 @@ function buildCard(id) {
   const title = element("span", "thread-title");
   const fold = element("button", "link-btn thread-fold");
   fold.type = "button";
-  fold.onclick = () => {
+  fold.addEventListener("click", () => {
     prefs.set(
       `thread:${id}:collapsed`,
       card.hasAttribute("collapsed") ? "0" : "1",
     );
     placeThreads();
-  };
+  });
   head.append(title, fold);
   const quote = element("div", "thread-quote");
   const messages = element("div", "thread-messages");
@@ -384,10 +384,12 @@ function buildCard(id) {
   card.append(head, quote, messages, element("div", "thread-status"), form);
   return { card, title, fold, quote, messages, form, shown: [], key: "" };
 }
+const shownMessage = (message) =>
+  message && `${message.from}\n${message.text ?? message.html}`;
 // folded is whether the card starts collapsed. The reviewer's own Collapse
 // or Expand, which prefs stores, overrides it. stored can hold a message that
 // the hub has not saved yet, so drawCard works out its state here.
-function drawCard(entry, stored, part, folded) {
+function drawCard(entry, stored, { part = null, folded } = {}) {
   const thread = { ...stored, state: threadState(stored, lifecycle(remote)) };
   const choice = prefs.get(`thread:${thread.id}:collapsed`);
   const collapsed = choice ? choice === "1" : folded;
@@ -416,10 +418,10 @@ function drawCard(entry, stored, part, folded) {
   // exception is an agent reply that reached the hub before a reply that
   // this card showed at once. The hub then lists the agent's reply first,
   // so drawCard draws every row again.
-  const shown = (message) =>
-    message && `${message.from}\n${message.text ?? message.html}`;
   if (
-    entry.shown.some((item, index) => item !== shown(thread.messages[index]))
+    entry.shown.some(
+      (item, index) => item !== shownMessage(thread.messages[index]),
+    )
   ) {
     messages.replaceChildren();
     entry.shown = [];
@@ -427,7 +429,7 @@ function drawCard(entry, stored, part, folded) {
   while (entry.shown.length < thread.messages.length) {
     const index = entry.shown.length;
     messages.append(messageRow(thread, thread.messages[index], index));
-    entry.shown.push(shown(thread.messages[index]));
+    entry.shown.push(shownMessage(thread.messages[index]));
   }
   card.querySelector(".thread-status").replaceWith(statusLine(thread));
   form.hidden = !editable || Boolean(thread.error);
@@ -497,7 +499,7 @@ function placeProgress(threads) {
     // Expand.
     if (!live && entry.form.contains(document.activeElement))
       prefs.set(`thread:${thread.id}:collapsed`, "0");
-    drawCard(entry, thread, null, !live);
+    drawCard(entry, thread, { folded: !live });
     if (after.nextElementSibling !== entry.card) {
       after.after(entry.card);
       moved = true;
@@ -531,7 +533,7 @@ function placeEnds(threads) {
     listed.forEach((thread, index) => {
       if (!cards.has(thread.id)) cards.set(thread.id, buildCard(thread.id));
       const entry = cards.get(thread.id);
-      drawCard(entry, thread, null, folds(listed, index));
+      drawCard(entry, thread, { folded: folds(listed, index) });
       if (box.children[index] !== entry.card)
         box.insertBefore(entry.card, box.children[index] ?? null);
     });
@@ -550,7 +552,7 @@ export function placeThreads() {
   const ids = new Set();
   const list = [];
   const ends = [];
-  for (const thread of allThreads().sort((a, b) =>
+  for (const thread of allThreads().toSorted((a, b) =>
     a.createdAt.localeCompare(b.createdAt),
   )) {
     const host = thread.proposal && cardOf(thread.proposal);
@@ -576,12 +578,13 @@ export function placeThreads() {
     threads.forEach((thread, index) => {
       if (!cards.has(thread.id)) cards.set(thread.id, buildCard(thread.id));
       const entry = cards.get(thread.id);
-      drawCard(entry, thread, partOf(block, thread), folds(threads, index));
+      drawCard(entry, thread, {
+        part: partOf(block, thread),
+        folded: folds(threads, index),
+      });
       let after =
         block ||
-        [...root.children]
-          .filter((node) => node.localName !== "pair-thread")
-          .at(-1);
+        [...root.children].findLast((node) => node.localName !== "pair-thread");
       if (!after) {
         if (entry.card.parentElement !== root) root.append(entry.card);
       } else {
@@ -597,8 +600,8 @@ export function placeThreads() {
       }
       placed.add(entry.card);
     });
-  for (const element of diffViews(root)) {
-    const threads = diffGroups.get(element) || [];
+  for (const diffView of diffViews(root)) {
+    const threads = diffGroups.get(diffView) || [];
     const byLine = new Map();
     for (const thread of threads) {
       const key = `${thread.diffLine.side}/${thread.diffLine.lineNumber}`;
@@ -607,14 +610,12 @@ export function placeThreads() {
     for (const lineThreads of byLine.values())
       lineThreads.forEach((thread, index) => {
         if (!cards.has(thread.id)) cards.set(thread.id, buildCard(thread.id));
-        drawCard(
-          cards.get(thread.id),
-          thread,
-          `line ${thread.diffLine.lineNumber}`,
-          folds(lineThreads, index),
-        );
+        drawCard(cards.get(thread.id), thread, {
+          part: `line ${thread.diffLine.lineNumber}`,
+          folded: folds(lineThreads, index),
+        });
       });
-    setDiffThreads(element, threads, cards);
+    setDiffThreads(diffView, threads, cards);
   }
   // A message's ResizeObserver calls fit only at the next frame, after a
   // scroll to a reply has measured each long message at its full height.

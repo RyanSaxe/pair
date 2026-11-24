@@ -1,9 +1,9 @@
 # Sessions and rounds
 
-A session is one task you work on with your agent, such as understanding
-some code, planning a change or building it, or all three in turn. Each
-session has its own URL, and pair shows every round of it in the same tab.
-The session lasts until you close it.
+A session is one task you work on with your agent, such as understanding some
+code, planning a change or building it, or all three in turn. Each session has
+its own URL, and pair shows every round of it in the same tab. The session lasts
+until you close it.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/session-dark.svg">
@@ -12,32 +12,32 @@ The session lasts until you close it.
 
 ## A round
 
-The agent shows you its work in rounds. A round is a set of pages that the
-agent publishes together, and you send one answer to the whole round.
+The agent shows you its work in rounds. A round is a set of pages that the agent
+publishes together, and you send one answer to the whole round.
 
-1. The agent publishes **Agreed** and the list of the round's pages first,
-   then publishes each page as soon as it is finished. You can start reading
-   as soon as the agent publishes Agreed.
-2. You respond on the pages. You choose between options, answer questions
-   and comment.
+1. The agent publishes **Agreed** and the list of the round's pages first, then
+   publishes each page as soon as it is finished. You can start reading as soon
+   as the agent publishes Agreed.
+2. You respond on the pages. You choose between options, answer questions and
+   comment.
 3. You press **Send**, choose what comes next, and send. The agent reads what
    you sent and publishes the next round.
 
 While the agent works, a progress card at the top of Agreed shows what it is
-doing and how many pages are ready. Once the agent has published every page,
-the round is waiting for you.
+doing and how many pages are ready. Once the agent has published every page, the
+round is waiting for you.
 
-Sending is the one thing that ends a round. When you start work from
-a proposal or ask a question in a thread, the round stays as it is, and you
-can still send it.
+Sending is the one thing that ends a round. When you start work from a proposal
+or ask a question in a thread, the round stays as it is, and you can still send
+it.
 
 ## The sidebar
 
 The sidebar lists the round's pages, then **Work** and **Review**. The first
-button in the header opens and closes the sidebar. On a screen wider than
-720px, the sidebar starts open, and it stays closed in that browser after you
-close it. At 720px and narrower, the sidebar starts closed and slides over the
-page when you open it, and choosing a page closes it again.
+button in the header opens and closes the sidebar. On a screen wider than 720px,
+the sidebar starts open, and it stays closed in that browser after you close it.
+At 720px and narrower, the sidebar starts closed and slides over the page when
+you open it, and choosing a page closes it again.
 
 The **Last round** tab at the top of the sidebar lists the pages of the round
 before this one, and **Current** lists this round's pages. The page on screen
@@ -56,10 +56,10 @@ both widths in that browser, for every session on the hub, and another open tab
 picks them up when it next loads.
 
 Everything on the page follows its width: text, the cards on Agreed and Work,
-Review, threads, code, diffs and prototypes. The block in the middle of the
-page stays in place while you drag. A diff shows **Side by side** while its
-column is at least 900px wide, unless you chose a layout for that diff. An image
-set to fill the page stops at 1200px.
+Review, threads, code, diffs and prototypes. The block in the middle of the page
+stays in place while you drag. A diff shows **Side by side** while its column is
+at least 900px wide, unless you chose a layout for that diff. An image set to
+fill the page stops at 1200px.
 
 The page shrinks with a smaller window and returns to its saved width when the
 window grows. At 1160px and narrower there are no tabs and the sidebar is 224px
@@ -81,21 +81,21 @@ wide.
 | Review what you will send | Press <kbd>r</kbd>.                                                                                                                     |
 | See every key             | Press <kbd>?</kbd>.                                                                                                                     |
 
-A comment, **Send**, **Start**, **New work item** and the list of keys open
-in a drawer beside what you clicked: a comment under its words or block,
-**Send** under its button and **Start** beside the card's button. The page
-stays in use behind it: you can scroll, select words, press choices and use
-the keys, and a comment's drawer moves with its words. One drawer
-is open at a time. When you open another one while a comment has words in
-it, pair first adds the comment to your draft, as **Add to draft** does. The
-× and <kbd>Esc</kbd> close the drawer, and a comment's words stay as a draft.
-On a phone or a tablet they open in a window over the page instead.
+A comment, **Send**, **Start**, **New work item** and the list of keys open in a
+drawer beside what you clicked: a comment under its words or block, **Send**
+under its button and **Start** beside the card's button. The page stays in use
+behind it: you can scroll, select words, press choices and use the keys, and a
+comment's drawer moves with its words. One drawer is open at a time. When you
+open another one while a comment has words in it, pair first adds the comment to
+your draft, as **Add to draft** does. The × and <kbd>Esc</kbd> close the drawer,
+and a comment's words stay as a draft. On a phone or a tablet they open in a
+window over the page instead.
 
 ## Your draft
 
-pair saves everything you do on the pages as a draft until you send it. The
-hub keeps the parts of your draft you completed, so you can start a round on
-your phone and continue it on your computer:
+pair saves everything you do on the pages as a draft until you send it. The hub
+keeps the parts of your draft you completed, so you can start a round on your
+phone and continue it on your computer:
 
 - a note after **Add to draft**, and its edits and removal
 - a choice in a decision and a checked box
@@ -103,22 +103,20 @@ your phone and continue it on your computer:
 - the **Everything else looks good** switch
 
 The browser you typed in keeps the rest, which no other device shows: the text
-in an open comment, an answer before **Answer**, a drawing you have not
-saved, a thread reply you have not sent and the message under **Send**. Your
-browser also keeps a copy of what you completed, and it sends what you
-completed while the hub was unreachable when the hub answers again. While the
-hub is unreachable, the frame shows "The hub is unreachable. Your draft is
-saved in this browser." under the header on every page, and **Send** is off
-until the hub answers.
+in an open comment, an answer before **Answer**, a drawing you have not saved, a
+thread reply you have not sent and the message under **Send**. Your browser also
+keeps a copy of what you completed, and it sends what you completed while the
+hub was unreachable when the hub answers again. While the hub is unreachable,
+the frame shows "The hub is unreachable. Your draft is saved in this browser."
+under the header on every page, and **Send** is off until the hub answers.
 
-**Send** in the header opens a drawer where you choose what the agent
-does next, and you send the round with the drawer's button.
+**Send** in the header opens a drawer where you choose what the agent does next,
+and you send the round with the drawer's button.
 
 In most rounds, the choices are:
 
 - **Keep iterating**: the agent writes the next pages from your comments.
-- **Write a plan**: the agent makes the next round a plan you can build
-  from.
+- **Write a plan**: the agent makes the next round a plan you can build from.
 - **Build it**: the agent applies your comments, then builds what Agreed
   describes, in this session.
 
@@ -126,47 +124,46 @@ In a plan round, the choices are:
 
 - **Update the plan**: the agent revises the plan with your comments.
 - **Back to iterating**: the agent sets the plan aside and keeps exploring.
-- **Build it**: the agent applies your comments, then builds the plan, in
-  this session.
+- **Build it**: the agent applies your comments, then builds the plan, in this
+  session.
 
 The drawer opens with the first choice selected, never Build it. The button's
 label is **Build it** when you choose Build it, and **Send** otherwise. The
-agent can also make a round a plan without your asking, when it judges that
-it knows enough to write one.
+agent can also make a round a plan without your asking, when it judges that it
+knows enough to write one.
 
-pair sends a typed answer only after you press **Answer**. The drawer lists
-each typed answer you have not added, with a link to its question.
+pair sends a typed answer only after you press **Answer**. The drawer lists each
+typed answer you have not added, with a link to its question.
 
-The drawer also has a box for a message to the agent, which stays in your
-draft until you send it, and the switch **Everything else looks good**,
-which is on by default. When the switch is on, the agent treats everything
-the pages stated as agreed, except where one of your comments challenges
-it. Turning the switch on never chooses an option or answers a question for
-you.
+The drawer also has a box for a message to the agent, which stays in your draft
+until you send it, and the switch **Everything else looks good**, which is on by
+default. When the switch is on, the agent treats everything the pages stated as
+agreed, except where one of your comments challenges it. Turning the switch on
+never chooses an option or answers a question for you.
 
 After you send, the round's **What you sent** page lists it, with your choice
 and your message.
 
-The hub keeps one submission for each round. When you send from a second tab
-or device after the hub saved the round, the hub refuses that send,
-and the frame shows why. Your comments and message stay in that device's draft
-for the next round.
+The hub keeps one submission for each round. When you send from a second tab or
+device after the hub saved the round, the hub refuses that send, and the frame
+shows why. Your comments and message stay in that device's draft for the next
+round.
 
-When the refused send had a message, the error also offers **Send as a
-message**. That button starts a thread with your message, as **Message the
-agent** does, so the agent gets it now, and the frame takes the message out of
-the draft. Your notes and choices stay in the draft.
+When the refused send had a message, the error also offers
+**Send as a message**. That button starts a thread with your message, as
+**Message the agent** does, so the agent gets it now, and the frame takes the
+message out of the draft. Your notes and choices stay in the draft.
 
 ## Agreed
 
-Agreed is the first page of every round, and the sidebar lists it as Agreed
-so far. It shows the **task**, a statement of what you and the agent are working
-towards. Under **Alignments**, it lists every decision you have settled so
-far, each with a link to where you settled it. When something on Agreed is
-wrong, comment on it.
+Agreed is the first page of every round, and the sidebar lists it as Agreed so
+far. It shows the **task**, a statement of what you and the agent are working
+towards. Under **Alignments**, it lists every decision you have settled so far,
+each with a link to where you settled it. When something on Agreed is wrong,
+comment on it.
 
-A plan round has a grey **Plan** tag beside the title of its Agreed, and
-beside the round in the Rounds panel.
+A plan round has a grey **Plan** tag beside the title of its Agreed, and beside
+the round in the Rounds panel.
 
 | Tag               | Meaning                                                                                    |
 | ----------------- | ------------------------------------------------------------------------------------------ |
@@ -176,50 +173,48 @@ beside the round in the Rounds panel.
 
 ## When the agent edits your project
 
-The agent edits your project only for work you have approved. You approve
-work by choosing **Build it** when you send a round, by starting one of its
-[proposals](proposals-and-work.md), or by asking the agent for the work in
-your own words, in a comment, a thread, what you send or the chat. When you
-ask in words for work beside the session's task, the agent records the
-request as a proposal and starts it, quoting you, so the Work page lists
-every piece of work you approved beside the task.
+The agent edits your project only for work you have approved. You approve work
+by choosing **Build it** when you send a round, by starting one of its
+[proposals](proposals-and-work.md), or by asking the agent for the work in your
+own words, in a comment, a thread, what you send or the chat. When you ask in
+words for work beside the session's task, the agent records the request as a
+proposal and starts it, quoting you, so the Work page lists every piece of work
+you approved beside the task.
 
-Before you approve anything, the agent tries ideas only in a git worktree
-inside the session's directory, or in a plain directory there when your
-project is not a git repository. Your checkout and your branches stay as
-they are. The agent asks you before it deletes a worktree it made.
+Before you approve anything, the agent tries ideas only in a git worktree inside
+the session's directory, or in a plain directory there when your project is not
+a git repository. Your checkout and your branches stay as they are. The agent
+asks you before it deletes a worktree it made.
 
 ## Sessions and notifications
 
 ### The session list
 
-The Sessions button, second in the header, or <kbd>g</kbd>, opens the
-session list. It lists every live session in the order the sessions
-started. A
+The Sessions button, second in the header, or <kbd>g</kbd>, opens the session
+list. It lists every live session in the order the sessions started. A
 [sub-session](proposals-and-work.md#sub-sessions-and-new-agent-sessions)
 is listed under the session it came from, with an arrow, ↳, in place of a
-number. Each row has **Copy handoff line**, and ✕, which you press to close
-the session.
+number. Each row has **Copy handoff line**, and ✕, which you press to close the
+session.
 
 - The number on the Sessions button shows how many other sessions have a round
   waiting for you, an agent the hub could not wake, or unopened pages in a round
   you have not sent. pair stops counting a waiting round once you open that
   session, clear its line from the bell or reopen the session, and the session
   list still marks that session **Waiting**. The number is orange when pair
-  counts a waiting round or an
-  agent the hub could not wake, and blue otherwise. When pair counts no
-  session, a grey number shows how many other live sessions you have. pair
-  never counts the session in this tab.
+  counts a waiting round or an agent the hub could not wake, and blue otherwise.
+  When pair counts no session, a grey number shows how many other live sessions
+  you have. pair never counts the session in this tab.
 - A row shows **N new** when that session has N pages you have not opened in a
   round you have not sent, beside the session's state, such as **Waiting**. A
   blue number on the Sessions button counts the other sessions with such a row.
-- <kbd>1</kbd>–<kbd>9</kbd> open a session by its number. Sub-sessions have
-  no number. <kbd>w</kbd> opens the next session with a round waiting for
-  you, sub-sessions included.
+- <kbd>1</kbd>–<kbd>9</kbd> open a session by its number. Sub-sessions have no
+  number. <kbd>w</kbd> opens the next session with a round waiting for you,
+  sub-sessions included.
 - pair marks each page of a round that you have not opened as **New**.
-- The list shows a session as soon as the agent starts it. Until the
-  agent publishes the first Agreed, the session's page shows its title, its
-  agent and the progress card.
+- The list shows a session as soon as the agent starts it. Until the agent
+  publishes the first Agreed, the session's page shows its title, its agent and
+  the progress card.
 
 ### The bell
 
@@ -228,8 +223,8 @@ round waiting for you, a new reply in a thread, and a proposal waiting for
 **Start**. The orange number on the bell, also shown in the browser tab's title,
 is the number of rows. A thread with two new replies is one row. Under a reply,
 the row quotes the question that began its thread, with the number of new
-replies and, for a row from another session, that session's name. The list
-shows the newest 5 rows, and its link then says how many more there are.
+replies and, for a row from another session, that session's name. The list shows
+the newest 5 rows, and its link then says how many more there are.
 
 Click a row to go to its place: pair shows a reply in its thread on its page, a
 proposal's card on Work, and a waiting round's Agreed. For a row from another
@@ -272,8 +267,8 @@ feedback or decide it. A round waiting for you stays unread in every tab until
 you start on it: open its session from the session list, with <kbd>w</kbd> or
 with a number key, open one of its pages yourself, with a click or a key, or
 start a note in it. A tab that only shows the round, has focus or moves to the
-round as it arrives reads nothing. A tab never lists its own session's waiting round,
-because the page in front of you already shows it.
+round as it arrives reads nothing. A tab never lists its own session's waiting
+round, because the page in front of you already shows it.
 
 Select a row to read it, and reply there, without leaving your page. **Open**
 goes to the page itself.
@@ -312,11 +307,10 @@ round kept. The hub sends the agent no message. When the agent next runs a
 says you closed the session.
 
 Closing deletes no files. The git worktrees where the agent tried ideas stay
-until the agent deletes them with your approval. When you close a
-sub-session, the hub marks its proposal done in the session it came from. A
-closed session that still has open sub-sessions stays in the list as a grey
-heading above them, and pair removes it from the list once you close the
-last of them.
+until the agent deletes them with your approval. When you close a sub-session,
+the hub marks its proposal done in the session it came from. A closed session
+that still has open sub-sessions stays in the list as a grey heading above them,
+and pair removes it from the list once you close the last of them.
 
 To bring a closed session back, press Reopen on the line under its header and
 paste the command it copies into any agent. Nothing changes until an agent runs

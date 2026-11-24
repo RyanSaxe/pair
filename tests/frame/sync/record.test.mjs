@@ -38,7 +38,7 @@ test("a browser's own record goes to a hub with none, and what the hub lacks goe
   record.add(["a/1/retry"]);
   record.sync(["a/1/agreed", "a/1/keys"], keep);
   assert.deepEqual(sent.at(-1), { url: "/api/seen", opened: ["a/1/retry"] });
-  assert.deepEqual([...record.load()].sort(), [
+  assert.deepEqual([...record.load()].toSorted(), [
     "a/1/agreed",
     "a/1/keys",
     "a/1/retry",

@@ -30,9 +30,9 @@ export const subagentTool = () => "SendMessage";
 // the caller's own flags for Claude Code, which end with --, so that a flag
 // that takes several values, such as --add-dir, does not take the prompt as
 // one of them.
-export const launch = ({ name, prompt, args = [] }) => [
+export const launch = ({ name: sessionName, prompt, args = [] }) => [
   command,
-  ...(name ? ["--name", name] : []),
+  ...(sessionName ? ["--name", sessionName] : []),
   ...endOptions(args),
   prompt,
 ];

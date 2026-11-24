@@ -18,11 +18,25 @@ import {
   applySubmission,
 } from "../../../src/hub/session/draft.mjs";
 
+const wire = (value) => JSON.parse(JSON.stringify(value));
+
+const checklist = (target) => ({
+  kind: "multiple",
+  topic: "overview",
+  label: "Which failures are retried",
+  target,
+  round: "1",
+  touched: true,
+  options: [
+    { value: "5xx", label: "5xx responses", checked: true },
+    { value: "timeouts", label: "Timeouts", checked: false },
+  ],
+});
+
 // world() stands for one hub and the browsers that share its draft. It
 // passes each value through JSON, as HTTP and localStorage do, so no browser
 // shares an object with the hub.
 function world() {
-  const wire = (value) => JSON.parse(JSON.stringify(value));
   let hub = { id: "h1", revision: 0, items: {} };
   return {
     get hub() {
@@ -94,7 +108,7 @@ test("what the reviewer completed in one browser reaches the other, and text typ
   phone.replyDrafts.t1 = { text: "Half a reply.", attachments: [] };
   phone.message = "Typed in the Send popup.";
   w.sync(phone);
-  assert.deepEqual(Object.keys(w.hub.items).sort(), [
+  assert.deepEqual(Object.keys(w.hub.items).toSorted(), [
     "alignUnflagged",
     "answer/overview/why",
     "choice/overview/approach",
@@ -279,24 +293,12 @@ test("a send removes a checklist that the sending browser rebuilt with another t
   const w = world();
   const phone = w.device(),
     computer = w.device();
-  const list = (target) => ({
-    kind: "multiple",
-    topic: "overview",
-    label: "Which failures are retried",
-    target,
-    round: "1",
-    touched: true,
-    options: [
-      { value: "5xx", label: "5xx responses", checked: true },
-      { value: "timeouts", label: "Timeouts", checked: false },
-    ],
-  });
   // A draft saved by an older frame records a checklist with the ID that
   // frame gave its template of the page, not the live block's ID.
-  computer.choices["overview/retryable"] = list("block-overview-1");
+  computer.choices["overview/retryable"] = checklist("block-overview-1");
   w.sync(computer);
   w.sync(phone);
-  phone.choices["overview/retryable"] = list("multiselect-overview-0");
+  phone.choices["overview/retryable"] = checklist("multiselect-overview-0");
   w.send(phone);
   w.pull(computer);
   assert.deepEqual(computer.choices, {});

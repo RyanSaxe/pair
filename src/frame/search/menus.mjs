@@ -123,10 +123,11 @@ export function createMenus({
   };
 }
 
+const hereId = (value) => (value === HERE ? session.sessionId : value);
+
 // Search's three menus: sessions, rounds and kinds.
 export function searchMenus({ host, state }) {
   let sessions = [];
-  const hereId = (value) => (value === HERE ? session.sessionId : value);
   // Round 7 means something different in each session, so round numbers show
   // only for one session.
   function roundNumbers() {

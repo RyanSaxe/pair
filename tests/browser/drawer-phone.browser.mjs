@@ -36,11 +36,11 @@ async function openPage(t, url, options) {
 
 async function select(page, words) {
   await page.evaluate(
-    ([words, id]) => {
+    ([targetWords, id]) => {
       const node = document.getElementById(id).firstChild;
       const range = document.createRange();
       range.setStart(node, 0);
-      range.setEnd(node, words.length);
+      range.setEnd(node, targetWords.length);
       getSelection().removeAllRanges();
       getSelection().addRange(range);
     },
@@ -74,12 +74,12 @@ const stubKeyboard = (page) =>
 // A modal glides to its place above a keyboard once the keyboard has stopped
 // changing, so a test waits until the box has stopped and is centered above it.
 const rest = (page, id) =>
-  page.waitForFunction((id) => {
-    const dialog = document.getElementById(id);
-    const box = dialog.getBoundingClientRect();
+  page.waitForFunction((dialogId) => {
+    const dialog = document.getElementById(dialogId);
+    const rect = dialog.getBoundingClientRect();
     return (
       !dialog.getAnimations().length &&
-      Math.abs(box.top - (visualViewport.height - box.bottom)) <= 1
+      Math.abs(rect.top - (visualViewport.height - rect.bottom)) <= 1
     );
   }, id);
 const box = (page, selector) =>
@@ -90,14 +90,17 @@ const box = (page, selector) =>
 // keyboard, and whether its main button shows.
 const placed = (page, id, button) =>
   page.evaluate(
-    ([id, button]) => {
-      const box = document.getElementById(id).getBoundingClientRect();
-      const main = document.getElementById(button).getBoundingClientRect();
+    ([dialogId, buttonId]) => {
+      const dialogBox = document
+        .getElementById(dialogId)
+        .getBoundingClientRect();
+      const main = document.getElementById(buttonId).getBoundingClientRect();
       return {
-        modal: document.getElementById(id).matches(":modal"),
-        top: Math.round(box.top),
-        bottom: Math.round(visualViewport.height - box.bottom),
-        buttonShown: main.top >= box.top && main.bottom <= box.bottom,
+        modal: document.getElementById(dialogId).matches(":modal"),
+        top: Math.round(dialogBox.top),
+        bottom: Math.round(visualViewport.height - dialogBox.bottom),
+        buttonShown:
+          main.top >= dialogBox.top && main.bottom <= dialogBox.bottom,
       };
     },
     [id, button],
@@ -180,7 +183,8 @@ for (const engine of ["chrome", "webkit"]) {
       await stubKeyboard(page);
       const size = `${width}x${height}`;
       const top = height - Math.round(height * 0.45);
-      const raise = () => page.evaluate((top) => window.setKeyboard(top), top);
+      const raise = () =>
+        page.evaluate((value) => window.setKeyboard(value), top);
       const drop = () => page.evaluate(() => window.setKeyboard(null));
       const openNote = async () => {
         await select(page, quote);

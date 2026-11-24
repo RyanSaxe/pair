@@ -27,8 +27,13 @@ export function ackButton(thread, index) {
   button.setAttribute("aria-label", "Thumbs up");
   button.innerHTML = icon;
   button.disabled = !editable;
-  button.onclick = () =>
-    void toggle(button, thread.id, index, !isPressed(button));
+  button.addEventListener("click", () => {
+    void toggle(button, {
+      threadId: thread.id,
+      index,
+      on: !isPressed(button),
+    });
+  });
   show(button, pressed(thread, index));
   return button;
 }
@@ -43,7 +48,7 @@ export function syncAcks(card, thread) {
     show(button, pressed(thread, index));
   }
 }
-async function toggle(button, threadId, index, on) {
+async function toggle(button, { threadId, index, on }) {
   const key = `${threadId}/${index}`;
   wanted.set(key, on);
   show(button, on);

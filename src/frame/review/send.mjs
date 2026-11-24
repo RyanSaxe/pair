@@ -110,6 +110,11 @@ function feedbackText(next, message) {
     const { label, text } = itemSummary("note", note, {
       label: pages.find((item) => item.id === note.topic)?.title || "Overall",
     });
+    const attachmentLines = [];
+    for (const item of note.attachments || []) {
+      attachmentLines.push(`Image: ${item.path}`);
+      if (item.scene) attachmentLines.push(`Sketch scene: ${item.scene.path}`);
+    }
     lines.push(
       "",
       label,
@@ -117,10 +122,7 @@ function feedbackText(next, message) {
       text,
       /* The hub stores each image in the session directory, so the text
          gives the file's path instead of the image. */
-      ...(note.attachments || []).flatMap((item) => [
-        `Image: ${item.path}`,
-        ...(item.scene ? [`Sketch scene: ${item.scene.path}`] : []),
-      ]),
+      ...attachmentLines,
     );
   }
   return lines.join("\n");
@@ -217,14 +219,16 @@ function sendAsMessage() {
   if (selectedTab !== "current")
     switchTab("current", null, { showPage: false });
   show("agreed");
-  startThread(progressThread, text, [], () => {
-    if (selectedTab !== "current" || state.message?.trim() !== text) return;
-    state.message = "";
-    persist();
+  startThread(progressThread, text, {
+    saved: () => {
+      if (selectedTab !== "current" || state.message?.trim() !== text) return;
+      state.message = "";
+      persist();
+    },
   });
 }
 export function installSend() {
-  $("submit").onclick = () => {
+  $("submit").addEventListener("click", () => {
     if (selectedTab === "past") {
       // When Current's round is already sent, the handler opens that
       // round's What you sent.
@@ -236,15 +240,15 @@ export function installSend() {
       switchTab("current");
     }
     openSend();
-  };
-  $("save-error-message").onclick = sendAsMessage;
-  $("save-error-dismiss").onclick = () => {
+  });
+  $("save-error-message").addEventListener("click", sendAsMessage);
+  $("save-error-dismiss").addEventListener("click", () => {
     clearSubmissionError();
     review();
-  };
+  });
   // The reviewer picks what comes next only in the Send popup, so an export
   // uses the popup's starting choice.
-  $("export").onclick = () => {
+  $("export").addEventListener("click", () => {
     const event = submission(startingChoice(isPlanRound()));
     persist();
     const url = URL.createObjectURL(
@@ -257,5 +261,5 @@ export function installSend() {
     link.download = `${plan.name}-${plan.round}-feedback.json`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
-  };
+  });
 }

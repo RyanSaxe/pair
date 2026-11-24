@@ -61,6 +61,9 @@ async function clonePair(directory) {
   return cli;
 }
 
+const readHubRecord = async (config) =>
+  JSON.parse(await fs.readFile(config.hubFile, "utf8"));
+
 // scratch returns a temporary home with the state directory every hub in the
 // test shares, and kills the hub and removes the home when the test ends.
 async function scratch(t) {
@@ -72,13 +75,11 @@ async function scratch(t) {
     await fs.mkdir(path.join(home, name));
     return pairCli(path.join(home, name), env, cli ? { cli } : {});
   };
-  const record = async (config) =>
-    JSON.parse(await fs.readFile(config.hubFile, "utf8"));
   t.after(async () => {
     await killHub(settings(env));
     await fs.rm(home, { recursive: true, force: true });
   });
-  return { home, agent, record };
+  return { home, agent, record: readHubRecord };
 }
 
 const edit = (folder) =>

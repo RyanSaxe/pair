@@ -70,7 +70,7 @@ export function imageFigure(item, remove) {
   drop.className = "icon-btn";
   drop.textContent = "✕";
   drop.setAttribute("aria-label", "Remove this image");
-  drop.onclick = remove;
+  drop.addEventListener("click", remove);
   figure.append(image, drop);
   return figure;
 }

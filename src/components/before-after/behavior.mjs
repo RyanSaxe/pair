@@ -76,15 +76,15 @@ planUI.define("before-after", {
       }
     };
     for (const button of buttons)
-      button.onclick = () => {
+      button.addEventListener("click", () => {
         prefs.set(key, button.dataset.diffStyle);
         render(button.dataset.diffStyle);
-      };
+      });
     if (wrapButton)
-      wrapButton.onclick = () => {
+      wrapButton.addEventListener("click", () => {
         prefs.set(wrapKey, wrapped() ? "off" : "on");
         render(style);
-      };
+      });
     render(prefs.get(key) || automatic());
     new ResizeObserver(() => {
       if (prefs.get(key)) return;

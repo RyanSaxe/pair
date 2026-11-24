@@ -1,6 +1,6 @@
-const listedKinds = ["session", "waiting", "reply", "proposal"];
+const listedKinds = new Set(["session", "waiting", "reply", "proposal"]);
 export const announced = (entry, event) =>
-  listedKinds.includes(event.kind) &&
+  listedKinds.has(event.kind) &&
   !event.acknowledged &&
   (event.kind !== "waiting" || (entry.needsYou && entry.round === event.round));
 export function eventTitle(event) {
@@ -172,15 +172,15 @@ export function createReviewAlerts({
             tag: prefix + alert.id,
           });
           write(alert.id, "handled");
-          item.onclick = () => {
+          item.addEventListener("click", () => {
             item.close();
             host.focus();
             open(alert.url);
-          };
-          item.onerror = () => {
+          });
+          item.addEventListener("error", () => {
             failed = true;
             controls();
-          };
+          });
         } catch {
           failed = true;
         }
@@ -188,7 +188,7 @@ export function createReviewAlerts({
     });
     controls();
   }
-  button.onclick = async () => {
+  button.addEventListener("click", async () => {
     if (read("enabled") === "yes" && permission() === "granted") {
       await serialize(() => write("enabled", "no"));
       controls();
@@ -207,7 +207,7 @@ export function createReviewAlerts({
     }
     requesting = false;
     controls();
-  };
+  });
   host.addEventListener("storage", (event) => {
     if (event.key?.startsWith(prefix)) void update();
   });

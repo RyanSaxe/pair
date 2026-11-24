@@ -67,7 +67,7 @@ async function main() {
       );
     }
   }
-  for (const cleanup of cleanups.reverse()) {
+  for (const cleanup of cleanups.toReversed()) {
     try {
       await cleanup();
     } catch (error) {

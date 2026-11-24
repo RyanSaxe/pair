@@ -98,7 +98,10 @@ export const subagentTool = () => "send_message";
 // register alongside its first action. Once registered, later turns and
 // subagents share the same agy process and print nothing; restarting with
 // `agy -c` starts a new agy process and re-registers on its next turn.
-export async function hookResponse(ancestor, { readAgents, env, input, name }) {
+export async function hookResponse(
+  ancestor,
+  { readAgents, env, input, name: sessionName },
+) {
   if (isNonInteractive(commandLine(ancestor))) return null;
   if (variables.every((key) => env[key])) return undefined;
   if (/\bpair register\b/.test(input?.lastUserInput ?? "")) return null;
@@ -110,8 +113,8 @@ export async function hookResponse(ancestor, { readAgents, env, input, name }) {
       entry.processStart === ancestor.start,
   );
   if (registered) return null;
-  const registerCommand = name
-    ? `pair register --name ${name}`
+  const registerCommand = sessionName
+    ? `pair register --name ${sessionName}`
     : "pair register";
   return {
     injectSteps: [
@@ -143,7 +146,7 @@ export async function wake(target, line, run) {
   try {
     await run(target.agentapi, args, env);
   } catch (error) {
-    throw new Error(agentapiError(error.message));
+    throw new Error(agentapiError(error.message), { cause: error });
   }
   return { via: "send-message", steerable: true };
 }

@@ -211,8 +211,11 @@ export async function loadPageRecord(round, id) {
     ) {
       $("page-content").innerHTML =
         `<div class="page-load-error" role="alert"><p>Could not load this page.</p><button class="btn" type="button">Retry</button></div>`;
-      $("page-content").querySelector("button").onclick = () =>
-        loadPageRecord(round, id).catch(() => {});
+      $("page-content")
+        .querySelector("button")
+        .addEventListener("click", () =>
+          loadPageRecord(round, id).catch(() => {}),
+        );
     }
     throw error;
   });

@@ -1,6 +1,6 @@
 import { listing, usageError } from "./arguments.mjs";
 import { openSession } from "./session.mjs";
-import { tag, tagText } from "./tags.mjs";
+import { blockTag, tagText } from "./tags.mjs";
 
 const KINDS = ["pages", "threads", "notes", "answers", "proposals", "agreed"];
 const DEFAULT_LIMIT = 10;
@@ -25,7 +25,7 @@ function roundsText(rounds) {
 }
 
 function resultText(row) {
-  return tag(
+  return blockTag(
     "pair_result",
     {
       kind: row.kind,
@@ -38,7 +38,6 @@ function resultText(row) {
       partial: row.partial ?? undefined,
     },
     tagText([row.heading, row.text].filter(Boolean).join("\n")),
-    true,
   );
 }
 

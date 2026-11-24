@@ -143,8 +143,8 @@ export function connect(socketPath, timeout) {
       request(method, params) {
         if (failure) return Promise.reject(failure);
         const id = ++ids;
-        return new Promise((resolve, reject) => {
-          answers.set(id, { resolve, reject });
+        return new Promise((fulfill, failRequest) => {
+          answers.set(id, { resolve: fulfill, reject: failRequest });
           writer.write(frame({ jsonrpc: "2.0", id, method, params }));
         });
       },

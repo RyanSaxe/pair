@@ -81,11 +81,50 @@ $("page-content").addEventListener("click", (event) => {
    original parent, lightboxHome. */
 const lightbox = $("diagram-dialog");
 const lightboxHome = lightbox.parentElement;
+let lightboxState = null;
 function returnLightboxHome() {
   lightboxHome.append(lightbox);
 }
+function closeLightbox() {
+  returnLightboxHome();
+  lightbox.close();
+}
 lightbox.addEventListener("close", () => {
-  if (!lightbox.open) returnLightboxHome();
+  if (!lightbox.open) {
+    lightboxState = null;
+    returnLightboxHome();
+  }
+});
+// The frame's note handlers must not treat a dialog click as a page note.
+lightbox.addEventListener("mousemove", (event) => event.stopPropagation());
+lightbox.addEventListener("click", (event) => {
+  event.stopPropagation();
+  if (event.target.closest("[data-close]")) return closeLightbox();
+  const id = linkedPage(event);
+  if (id) {
+    closeLightbox();
+    show(id);
+    return;
+  }
+  const box = !event.target.closest("a") && diagramBox(event.target);
+  if (!box || !lightboxState?.noting) return;
+  const { diagram } = lightboxState;
+  closeLightbox();
+  commentOn(diagram, { quote: box.label, diagramNode: box.id });
+});
+lightbox.addEventListener("keydown", (event) => {
+  const id = linkedPage(event);
+  if (!id || !["Enter", " "].includes(event.key)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  closeLightbox();
+  show(id);
+});
+$("diagram-sketch").addEventListener("click", () => {
+  if (!lightboxState) return;
+  const { diagram } = lightboxState;
+  closeLightbox();
+  openSketch(diagram);
 });
 /* withAncestors() repeats the ancestor classes and inline variables on the
    copy, so authored selectors and before-and-after styles also match the
@@ -115,7 +154,7 @@ function copySvg(svg) {
     node.id = prefix + node.id;
   }
   for (const node of [clone, ...clone.querySelectorAll("*")]) {
-    for (const attribute of [...node.attributes]) {
+    for (const attribute of node.attributes) {
       let value = attribute.value.replace(
         /url\(["']?#([^)"']+)["']?\)/g,
         (match, id) => (ids.has(id) ? `url(#${ids.get(id)})` : match),
@@ -139,17 +178,10 @@ function openLightbox(svg) {
   const dialog = lightbox;
   const diagram = svg.closest("[data-diagram]");
   const noting = canComment() && !diagram.closest("pair-thread");
+  lightboxState = { diagram, noting };
   dialog.classList.toggle("noting", noting);
   const sketch = $("diagram-sketch");
   sketch.hidden = !noting || !canSketch();
-  sketch.onclick = () => {
-    close();
-    openSketch(diagram);
-  };
-  const close = () => {
-    returnLightboxHome();
-    dialog.close();
-  };
   dialog.style.setProperty(
     "--diagram-width",
     diagram.style.getPropertyValue("--diagram-width"),
@@ -158,30 +190,6 @@ function openLightbox(svg) {
   dialog
     .querySelector(".lightbox-view")
     .replaceChildren(withAncestors(svg, clone));
-  // The frame's note handlers must not treat a dialog click as a page note.
-  dialog.onmousemove = (event) => event.stopPropagation();
-  dialog.onclick = (event) => {
-    event.stopPropagation();
-    if (event.target.closest("[data-close]")) return close();
-    const id = linkedPage(event);
-    if (id) {
-      close();
-      show(id);
-      return;
-    }
-    const box = !event.target.closest("a") && diagramBox(event.target);
-    if (!box || !noting) return;
-    close();
-    commentOn(diagram, { quote: box.label, diagramNode: box.id });
-  };
-  dialog.onkeydown = (event) => {
-    const id = linkedPage(event);
-    if (!id || !["Enter", " "].includes(event.key)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    close();
-    show(id);
-  };
   $("page-content").append(dialog);
   if (dialog.open) dialog.close();
   dialog.showModal();

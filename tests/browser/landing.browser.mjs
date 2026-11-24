@@ -82,7 +82,7 @@ async function setup(t, engine, screen) {
   // The image route answers at once. After holdScreenshot(), it waits until the
   // test calls releaseScreenshot().
   let screenshot = Promise.resolve();
-  let releaseScreenshot = () => {};
+  let releaseScreenshot = null;
   const holdScreenshot = () =>
     (screenshot = new Promise((resolve) => (releaseScreenshot = resolve)));
   await page.route(/^http:\/\/images\.localhost\//, async (route) => {
@@ -116,7 +116,7 @@ async function setup(t, engine, screen) {
     thread,
     reply,
     holdScreenshot,
-    releaseScreenshot: () => releaseScreenshot(),
+    releaseScreenshot: () => releaseScreenshot?.(),
   };
 }
 

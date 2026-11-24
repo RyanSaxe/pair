@@ -70,16 +70,17 @@ test("Sessions numbers only the sessions that are not sub-sessions, the number k
       ["2", "Last"],
     ],
   );
-  const layout = await rows.evaluateAll((lines) => {
-    const box = (element) => element.getBoundingClientRect();
-    return {
-      number: box(lines[0].querySelector(".n")),
-      mark: box(lines[2].querySelector(".n svg")),
-      gaps: lines
-        .slice(1)
-        .map((line, index) => box(line).top - box(lines[index]).bottom),
-    };
-  });
+  const layout = await rows.evaluateAll((lines) => ({
+    number: lines[0].querySelector(".n").getBoundingClientRect(),
+    mark: lines[2].querySelector(".n svg").getBoundingClientRect(),
+    gaps: lines
+      .slice(1)
+      .map(
+        (line, index) =>
+          line.getBoundingClientRect().top -
+          lines[index].getBoundingClientRect().bottom,
+      ),
+  }));
   assert.ok(
     layout.mark.width > 0 &&
       layout.mark.left >= layout.number.left &&

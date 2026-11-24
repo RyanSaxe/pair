@@ -79,7 +79,7 @@ function closestLanguage(name) {
     .filter(
       (id) => id.length > 1 && (lower.startsWith(id) || id.startsWith(lower)),
     )
-    .sort((a, b) => b.length - a.length)[0];
+    .toSorted((a, b) => b.length - a.length)[0];
 }
 /* renderedLines() returns the number of lines the frame renders from a code
    block's source. The HTML parser drops a newline right after <pre>, and the
@@ -176,7 +176,7 @@ function controlProblems(all, at) {
       .map((option) => attribute(option, "data-value"))
       .filter(Boolean);
     for (const value of new Set(
-      values.filter((value, index) => values.indexOf(value) !== index),
+      values.filter((item, index) => values.indexOf(item) !== index),
     ))
       list.push(
         `${at}: options in "${id}" share data-value "${value}". Give each option in a group its own data-value.`,

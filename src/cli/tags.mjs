@@ -12,14 +12,16 @@ const attribute = (value) =>
     .replaceAll('"', "&quot;")
     .replaceAll("<", "&lt;");
 
-export function tag(name, attributes, content = "", block = false) {
+export function tag(name, attributes, content = "") {
   const named = Object.entries(attributes)
     .filter(([, value]) => value !== undefined && value !== null)
     .map(([key, value]) => ` ${key}="${attribute(value)}"`)
     .join("");
-  return block
-    ? `<${name}${named}>\n${content}\n</${name}>`
-    : `<${name}${named}>${content}</${name}>`;
+  return `<${name}${named}>${content}</${name}>`;
+}
+
+export function blockTag(name, attributes, content = "") {
+  return tag(name, attributes, `\n${content}\n`);
 }
 
 const clock = (at) => new Date(at).toTimeString().slice(0, 5);
@@ -38,7 +40,7 @@ export function feedbackText(event) {
   const items = [
     reviewerLine,
     ...(payload.message
-      ? [tag("pair_send_message", {}, tagText(payload.message), true)]
+      ? [blockTag("pair_send_message", {}, tagText(payload.message))]
       : []),
     ...Object.entries(groups.choices || {}).map(([id, choice]) =>
       tag(
@@ -56,15 +58,14 @@ export function feedbackText(event) {
             scene: answer.scenePath,
             preview: answer.previewPath,
           })
-        : tag(
+        : blockTag(
             "pair_answer",
             { id, page: answer.topic, label: answer.label },
             tagText(answer.text),
-            true,
           ),
     ),
     ...(groups.notes || []).map((note) =>
-      tag(
+      blockTag(
         "pair_note",
         {
           id: note.id,
@@ -79,11 +80,10 @@ export function feedbackText(event) {
           tagText(note.text),
           ...images(note.attachments),
         ].join("\n"),
-        true,
       ),
     ),
   ];
-  return tag(
+  return blockTag(
     "pair_feedback",
     {
       submission: event.id,
@@ -93,7 +93,6 @@ export function feedbackText(event) {
       "everything-else-looks-good": groups.alignUnflagged ? "yes" : undefined,
     },
     items.join("\n"),
-    true,
   );
 }
 
@@ -107,7 +106,7 @@ function startMessage(card, started, submission) {
   if (!text) return [];
   const { page } = started;
   return [
-    tag(
+    blockTag(
       "pair_start",
       {
         submission,
@@ -117,7 +116,6 @@ function startMessage(card, started, submission) {
         page: page && `${page.round}/${page.id}`,
       },
       [reviewerLine, tagText(text)].join("\n"),
-      true,
     ),
   ];
 }
@@ -125,35 +123,35 @@ function startMessage(card, started, submission) {
 // another card.
 export const joinedInto = (card, cards = []) =>
   cards.filter((item) => item.done?.joined === card.id);
-function joinedText(card, cards, indent, delivers = false) {
+function joinedText(card, cards, { indent = "", delivers = false } = {}) {
   const joined = joinedInto(card, cards);
   if (!joined.length) return [];
   const width = Math.max(...joined.map((item) => item.id.length));
-  return [
+  const lines = [
     `${indent}Proposals joined into ${card.id}, whose work is part of ${card.id}:`,
-    ...joined.flatMap((item) => [
-      `${indent}  ${item.id.padEnd(width)}  ${item.title}`,
-      ...(delivers
-        ? [`${indent}  ${" ".repeat(width)}  Delivers: ${item.delivers}`]
-        : []),
-    ]),
   ];
+  for (const item of joined) {
+    lines.push(`${indent}  ${item.id.padEnd(width)}  ${item.title}`);
+    if (delivers)
+      lines.push(`${indent}  ${" ".repeat(width)}  Delivers: ${item.delivers}`);
+  }
+  return lines;
 }
-function startedText(card, started, submission, cards) {
+function startedText(card, { started, submission, cards }) {
   return [
     started.by === "words"
       ? `The reviewer asked for proposal ${card.id}, "${card.title}", in their own words, to run ${places[started.where]}.`
       : `The reviewer ${card.source?.reviewer ? "wrote" : "approved"} proposal ${card.id}, "${card.title}", to run ${places[started.where]}.`,
     `Delivers: ${card.delivers}`,
     ...images(card.attachments),
-    ...joinedText(card, cards, "", true),
+    ...joinedText(card, cards, { indent: "", delivers: true }),
     ...startMessage(card, started, submission),
   ].join("\n");
 }
 export const startText = (event, card, cards) =>
-  startedText(card, event.payload, event.id, cards);
+  startedText(card, { started: event.payload, submission: event.id, cards });
 export const proposalText = (card, cards) =>
-  startedText(card, card.started, undefined, cards);
+  startedText(card, { started: card.started, cards });
 
 export function runningText(cards, all) {
   if (!cards?.length) return "";
@@ -162,7 +160,7 @@ export function runningText(cards, all) {
     "Proposals you are still building in this session:",
     ...cards.flatMap((card) => [
       `  ${card.id.padEnd(width)}  ${card.title}`,
-      ...joinedText(card, all, "    "),
+      ...joinedText(card, all, { indent: "    " }),
       ...startMessage(card, card.started),
     ]),
   ].join("\n");
@@ -207,7 +205,7 @@ export function threadText(thread) {
           ].join("\n"),
     ),
   );
-  return tag(
+  return blockTag(
     "pair_thread",
     {
       id: thread.id,
@@ -219,7 +217,6 @@ export function threadText(thread) {
       kind: thread.kind,
     },
     [...quote(thread.quote), ...messages].join("\n"),
-    true,
   );
 }
 

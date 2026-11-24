@@ -477,6 +477,13 @@ test("a thread refuses an image the session does not have, and a closed session"
   assert.equal(a.inbox.wakes.length, 0);
 });
 
+const threadAgreement = (threadId) => ({
+  id: "errors",
+  title: "Per-item errors",
+  html: "<p>Keep successful results.</p>",
+  sourceRefs: [{ kind: "thread", threadId }],
+});
+
 test("Agreed cites a thread, and the publisher refuses one that does not exist", async (t) => {
   const { a, start, settled } = await published(t);
   const { id } = (await start({ quote: "A failed item", occurrence: 2 })).body
@@ -484,22 +491,19 @@ test("Agreed cites a thread, and the publisher refuses one that does not exist",
   await settled(id);
   assert.equal((await a.feedback(a.event())).code, 200);
   await a.action("read");
-  const entry = (threadId) => ({
-    id: "errors",
-    title: "Per-item errors",
-    html: "<p>Keep successful results.</p>",
-    sourceRefs: [{ kind: "thread", threadId }],
-  });
   const missing = await a.publish({
     ...planData("2"),
-    agreements: [entry("no-such-thread")],
+    agreements: [threadAgreement("no-such-thread")],
   });
   assert.equal(missing.code, 400);
   assert.equal(
     missing.body.error,
     "Agreed cites thread no-such-thread, which this session does not have. Cite a thread ID that pair read printed.",
   );
-  const cited = await a.publish({ ...planData("2"), agreements: [entry(id)] });
+  const cited = await a.publish({
+    ...planData("2"),
+    agreements: [threadAgreement(id)],
+  });
   assert.equal(cited.code, 200, cited.body.error);
   const snapshot = await a.servedRound("2");
   const [record] = readPlanData(snapshot).agreements[0].sourceRecords;

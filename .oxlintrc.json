@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  // Vanilla JS/MJS repository (no React or JSX).
+  "plugins": ["typescript", "unicorn", "oxc"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error"
+  },
+  "rules": {
+    // Pass an options object when a function needs more than three inputs.
+    "max-params": ["error", { "max": 3 }],
+    // CLI commands, hub polling, screenshot capture, and Playwright browser
+    // tests intentionally await sequential steps inside loops.
+    "no-await-in-loop": "off",
+    // Narrow with type guards or runtime checks instead of casting with `as`.
+    "typescript/consistent-type-assertions": [
+      "error",
+      { "assertionStyle": "never" }
+    ],
+    // Use `unknown` and narrow instead of turning off checks with `any`.
+    "typescript/no-explicit-any": "error",
+    // Handle null and undefined explicitly instead of using `!`.
+    "typescript/no-non-null-assertion": "error"
+  }
+}

@@ -25,7 +25,10 @@ export function diagramBoxes(target, id) {
   const hosts = host.matches("[data-diagram]")
     ? [host]
     : host.querySelectorAll("[data-diagram]");
-  return [...hosts].flatMap((diagram) => [
-    ...diagram.querySelectorAll(`.pele-node[data-id="${CSS.escape(id)}"]`),
-  ]);
+  const boxes = [];
+  for (const diagram of hosts)
+    boxes.push(
+      ...diagram.querySelectorAll(`.pele-node[data-id="${CSS.escape(id)}"]`),
+    );
+  return boxes;
 }

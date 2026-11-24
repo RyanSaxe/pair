@@ -56,14 +56,15 @@ export function drawNoteImages() {
       edit.type = "button";
       edit.className = "btn note-image-edit";
       edit.textContent = "Edit sketch";
-      edit.onclick = () =>
+      edit.addEventListener("click", () =>
         editSketch(item, (sketch) => {
           noteImages = noteImages.map((held) =>
             held.id === item.id ? sketch : held,
           );
           dropNoteImage(item);
           drawNoteImages();
-        }).catch((error) => imageError(error.message));
+        }).catch((error) => imageError(error.message)),
+      );
       figure.append(edit);
     }
     box.append(figure);
@@ -192,17 +193,19 @@ export function installNoteDialog() {
   addEventListener("resize", () => {
     if ($("note-dialog").open) fitNoteText();
   });
-  $("note-image-pick").onclick = () => $("note-image-input").click();
-  $("note-image-input").onchange = (event) => {
+  $("note-image-pick").addEventListener("click", () =>
+    $("note-image-input").click(),
+  );
+  $("note-image-input").addEventListener("change", (event) => {
     attach(event.target.files);
     event.target.value = "";
-  };
+  });
   acceptImages($("note-dialog"), attach);
   /* startThread sends the note to the hub now instead of keeping it for
      Send, so this handler deletes the note's draft and keeps its
      images. */
   $("note-thread").setAttribute("aria-keyshortcuts", sendKeyName());
-  $("note-thread").onclick = () => {
+  $("note-thread").addEventListener("click", () => {
     const allowed = noteContext.proposal ? cardsEditable() : noteEditable();
     if (!allowed || $("note-thread").hidden) return;
     const text = $("note-text").value.trim();
@@ -210,22 +213,22 @@ export function installNoteDialog() {
       $("note-form").reportValidity();
       return;
     }
-    startThread(noteContext, text, noteImages);
+    startThread(noteContext, text, { attachments: noteImages });
     if (state.noteDrafts) delete state.noteDrafts[noteDraftKey];
     noteImagesSaved = true;
     persist();
     $("note-dialog").close();
-  };
+  });
   $("note-text").addEventListener("keydown", (event) => {
     if (!sendKey(event)) return;
     event.preventDefault();
     $("note-thread").click();
   });
-  $("activity-message").onclick = openAgentMessage;
+  $("activity-message").addEventListener("click", openAgentMessage);
   // Shift+Enter also submits the form, so saveNote adds nothing to the draft
   // while the Add to draft button is hidden.
-  $("note-form").onsubmit = (event) => {
+  $("note-form").addEventListener("submit", (event) => {
     event.preventDefault();
     saveNote({ close: true });
-  };
+  });
 }

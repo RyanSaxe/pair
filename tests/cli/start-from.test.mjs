@@ -108,7 +108,10 @@ test("pair start --from refuses a missing --proposal, a directory with no sessio
   await refuses(
     cli.run(
       "start",
-      ...["--from", path.join(h.home, "elsewhere"), "--proposal", "deck"],
+      "--from",
+      path.join(h.home, "elsewhere"),
+      "--proposal",
+      "deck",
     ),
     /No pair session at .*elsewhere/,
   );
@@ -129,6 +132,11 @@ test("pair start --from refuses a missing --proposal, a directory with no sessio
   );
 });
 
+const moment = async (name) =>
+  (
+    await fs.readFile(path.join(root, "guide/moments", `${name}.md`), "utf8")
+  ).split("\n")[0];
+
 // When the reviewer starts a card with Plan it first, pair start --from prints
 // the start-from-plan moment. pair status shows the card as planning first
 // until the reviewer chooses Build it in the card's session.
@@ -140,10 +148,6 @@ test("pair start --from prints the plan-first moment, and pair status says the c
   });
   assert.equal(started.code, 200, started.body.error);
   const output = await from("--proposal", "notes");
-  const moment = async (name) =>
-    (
-      await fs.readFile(path.join(root, "guide/moments", `${name}.md`), "utf8")
-    ).split("\n")[0];
   assert(output.includes(await moment("start-from-plan")), output);
   assert(!output.includes(await moment("start-from")), output);
   assert.match(

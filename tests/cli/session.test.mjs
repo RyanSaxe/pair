@@ -103,10 +103,17 @@ test("pair status and pair propose run from an agent that cannot be woken", asyn
     CLAUDE_CODE_MESSAGING_SOCKET: "",
   });
   const recorded = await unwakeable.run(
-    ...["propose", "--session-dir", sessionDir, "--id", "churn-export"],
-    ...["--title", "Refresh the churn data export"],
-    ...["--delivers", "The export uses the September schema."],
-    ...["--recommend", "here"],
+    "propose",
+    "--session-dir",
+    sessionDir,
+    "--id",
+    "churn-export",
+    "--title",
+    "Refresh the churn data export",
+    "--delivers",
+    "The export uses the September schema.",
+    "--recommend",
+    "here",
   );
   // pair prints the next step only to the holder, so this output starts with
   // the proposal.
@@ -370,7 +377,7 @@ async function publishThroughProxy(t, answer) {
   const proxy = http.createServer(async (request, response) => {
     let body = "";
     for await (const chunk of request) body += chunk;
-    const hub = await fetch(origin + request.url, {
+    const hubResponse = await fetch(origin + request.url, {
       method: request.method,
       headers: {
         authorization: request.headers.authorization,
@@ -378,7 +385,7 @@ async function publishThroughProxy(t, answer) {
       },
       body,
     });
-    answer(response, hub, await hub.text());
+    answer(response, hubResponse, await hubResponse.text());
   });
   await new Promise((resolve) => proxy.listen(0, "127.0.0.1", resolve));
   t.after(() => proxy.close());
@@ -419,8 +426,8 @@ test("a publish whose answer is lost keeps the source the hub recorded", async (
 test("a publish whose answer is cut off keeps the source the hub recorded", async (t) => {
   const { failure, status, kept } = await publishThroughProxy(
     t,
-    (response, hub, body) => {
-      response.writeHead(hub.status, {
+    (response, hubResponse, body) => {
+      response.writeHead(hubResponse.status, {
         "content-type": "application/json",
         "content-length": String(Buffer.byteLength(body)),
       });
@@ -551,6 +558,18 @@ test("a --source that is empty or a file is refused and leaves nothing", async (
   assert.equal(await exists(path.join(sessionDir, "src", "1")), false);
 });
 
+const refused = (pattern) => (error) => {
+  assert.equal(error.code, 1);
+  assert.match(error.stderr, pattern);
+  return true;
+};
+
+const refusesTitle = (error) => {
+  assert.equal(error.code, 1);
+  assert.match(error.stderr, /--title/);
+  return true;
+};
+
 test("pair reply --ack acknowledges the reviewer's waiting messages, and pair read --thread prints it", async (t) => {
   const h = await hub(t);
   const root = path.join(h.home, "cli");
@@ -573,11 +592,6 @@ test("pair reply --ack acknowledges the reviewer's waiting messages, and pair re
   const dir = ["--session-dir", session.directory];
   const ack = (...args) =>
     cli.run("reply", ...dir, "--thread", id, "--ack", ...args);
-  const refused = (pattern) => (error) => {
-    assert.equal(error.code, 1);
-    assert.match(error.stderr, pattern);
-    return true;
-  };
   await assert.rejects(
     ack("--text", "Thanks."),
     refused(/takes one of --text, --file and --ack/),
@@ -738,11 +752,6 @@ test("pair start requires --title for a new session, and the first Agreed replac
     XDG_STATE_HOME: h.home,
     PAIR_HUB_PORT: "0",
   });
-  const refusesTitle = (error) => {
-    assert.equal(error.code, 1);
-    assert.match(error.stderr, /--title/);
-    return true;
-  };
   await assert.rejects(cli.run("start"), refusesTitle);
   assert.deepEqual(await fs.readdir(h.config.sessions), []);
   const { sessionDir, title } = await cli.start();
@@ -791,7 +800,8 @@ test("pair progress notes the round before Agreed, and each page it names", asyn
     "publish",
     ...dir,
     ...agreed,
-    ...["--note", "Measuring"],
+    "--note",
+    "Measuring",
   );
   assert.match(published, /^Started: detail\.$/m);
   const pages = async () =>

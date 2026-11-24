@@ -347,7 +347,7 @@ test("Decline and Restore move a card, and pair read prints a decline once", asy
   assert.equal(restored.body.proposals[0].declined, null);
   assert.equal((await reviewer("board-qa", "decline")).code, 200);
   assert.equal((await reviewer("churn-export", "decline")).code, 200);
-  assert.deepEqual((await read()).declined.map(({ id }) => id).sort(), [
+  assert.deepEqual((await read()).declined.map(({ id }) => id).toSorted(), [
     "board-qa",
     "churn-export",
   ]);
@@ -577,7 +577,7 @@ test("--done marks work approved to run here done, --where marks any card done, 
   const reopened = await propose({ id: "churn-export", reopen: true });
   assert.equal(reopened.code, 200, reopened.body.error);
   assert.deepEqual(
-    (await cards()).map((card) => [card.id, card.done?.where ?? null]),
+    (await cards()).map((item) => [item.id, item.done?.where ?? null]),
     [
       ["churn-export", null],
       ["board-qa", null],
@@ -756,8 +756,8 @@ test("a card saved with done and left parts reads as one list of parts", async (
   const restarted = await startHub(h.config);
   try {
     const response = await fetch(`${restarted.origin}${a.base}/api/status`);
-    const [card] = (await response.json()).proposals;
-    assert.deepEqual(card.status, {
+    const [proposal] = (await response.json()).proposals;
+    assert.deepEqual(proposal.status, {
       at,
       parts: [
         { text: "Read the schema", state: "done" },
@@ -782,20 +782,27 @@ test("--join merges a card into a proposed card or one approved to run here, and
   const { propose, add, reviewer, cards } = await proposing(t);
   await add();
   for (const id of [
-    ...["keys", "test", "gone", "no", "elsewhere"],
-    ...["sub", "agent", "outline", "late"],
+    "keys",
+    "test",
+    "gone",
+    "no",
+    "elsewhere",
+    "sub",
+    "agent",
+    "outline",
+    "late",
   ])
     await add({ id, title: `Card ${id}` });
   const join = (id, into = "churn-export") => propose({ id, join: into });
-  const refused = async (id, into, code, error) => {
+  const refused = async ([id, into], code, error) => {
     const answer = await join(id, into);
     assert.equal(answer.code, code, `${id} into ${into}`);
     assert.equal(answer.body.error, error);
   };
   const joinedTo = async () =>
     (await cards())
-      .filter((card) => card.done?.joined)
-      .map((card) => [card.id, card.done.joined]);
+      .filter((item) => item.done?.joined)
+      .map((item) => [item.id, item.done.joined]);
   const joined = await join("keys");
   assert.equal(joined.code, 200, joined.body.error);
   assert.deepEqual(
@@ -803,14 +810,12 @@ test("--join merges a card into a proposed card or one approved to run here, and
     { at: undefined, by: "agent", round: "1", joined: "churn-export" },
   );
   await refused(
-    "test",
-    "test",
+    ["test", "test"],
     400,
     "Proposal test cannot join itself. --join takes another proposal whose work covers it.",
   );
   await refused(
-    "test",
-    "keys",
+    ["test", "keys"],
     409,
     "Proposal keys is joined into churn-export, so no proposal can join it. Join proposal test into churn-export.",
   );
@@ -819,8 +824,7 @@ test("--join merges a card into a proposed card or one approved to run here, and
     200,
   );
   await refused(
-    "test",
-    "sub",
+    ["test", "sub"],
     409,
     "Proposal sub runs in a sub-session, so no proposal can join it.",
   );
@@ -829,8 +833,7 @@ test("--join merges a card into a proposed card or one approved to run here, and
     200,
   );
   await refused(
-    "test",
-    "agent",
+    ["test", "agent"],
     409,
     "Proposal agent runs in a new agent's session, so no proposal can join it.",
   );
@@ -841,41 +844,35 @@ test("--join merges a card into a proposed card or one approved to run here, and
   assert.equal((await join("test")).code, 200);
 
   await refused(
-    "churn-export",
-    "outline",
+    ["churn-export", "outline"],
     409,
     "The reviewer approved proposal churn-export, so you cannot join it into another proposal.",
   );
   await refused(
-    "keys",
-    "churn-export",
+    ["keys", "churn-export"],
     409,
     "Proposal keys is already joined into churn-export, so you cannot join it into another proposal.",
   );
   assert.equal((await reviewer("no", "decline")).code, 200);
   await refused(
-    "no",
-    "churn-export",
+    ["no", "churn-export"],
     409,
     "The reviewer declined proposal no. Drop its work and do not suggest it again.",
   );
   await refused(
-    "late",
-    "no",
+    ["late", "no"],
     409,
     "The reviewer declined proposal no, so no proposal can join it.",
   );
   const withdrawn = await propose({ id: "gone", withdraw: true, reason: "x" });
   assert.equal(withdrawn.code, 200, withdrawn.body.error);
   await refused(
-    "gone",
-    "churn-export",
+    ["gone", "churn-export"],
     409,
     "Proposal gone is withdrawn, so you cannot join it into another proposal.",
   );
   await refused(
-    "late",
-    "gone",
+    ["late", "gone"],
     409,
     "Proposal gone is withdrawn, so no proposal can join it.",
   );
@@ -886,12 +883,15 @@ test("--join merges a card into a proposed card or one approved to run here, and
   });
   assert.equal(elsewhere.code, 200, elsewhere.body.error);
   await refused(
-    "elsewhere",
-    "churn-export",
+    ["elsewhere", "churn-export"],
     409,
     "Proposal elsewhere is marked done, so you cannot join it into another proposal.",
   );
-  await refused("late", "nothing", 404, "No proposal nothing in this session");
+  await refused(
+    ["late", "nothing"],
+    404,
+    "No proposal nothing in this session",
+  );
   const paired = await propose({
     id: "late",
     join: "churn-export",
@@ -908,8 +908,7 @@ test("--join merges a card into a proposed card or one approved to run here, and
 
   assert.equal((await propose({ id: "churn-export", done: true })).code, 200);
   await refused(
-    "late",
-    "churn-export",
+    ["late", "churn-export"],
     409,
     "Proposal churn-export is marked done, so no proposal can join it.",
   );
@@ -925,8 +924,7 @@ test("--join merges a card into a proposed card or one approved to run here, and
 
   assert.equal((await join("late", "outline")).code, 200);
   await refused(
-    "outline",
-    "late",
+    ["outline", "late"],
     409,
     "Proposal late is joined into outline, so no proposal can join it.",
   );

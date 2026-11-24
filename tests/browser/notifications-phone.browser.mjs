@@ -6,7 +6,6 @@ import {
   badge,
   openOn,
   replied,
-  reply,
   row,
   sessions,
   shownFrame,
@@ -35,7 +34,7 @@ for (const engine of ["chrome", "webkit"])
         hasTouch: true,
         ...(engine === "chrome" ? { isMobile: true } : {}),
       };
-      const page = await openOn(t, h, here, options);
+      const page = await openOn(t, h, { session: here, ...options });
       if (!page) return;
       // Playwright shows no browser bars, so a test gives the visual viewport the
       // height they leave, and fires its resize event.
@@ -160,7 +159,8 @@ for (const engine of ["chrome", "webkit"])
     const h = await hub(t);
     const { here } = await sessions(t, h);
     await replied(here, "An answer about the walrus");
-    const page = await openOn(t, h, here, {
+    const page = await openOn(t, h, {
+      session: here,
       engine,
       viewport: { width: 375, height: 667 },
       hasTouch: true,

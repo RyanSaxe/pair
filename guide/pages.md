@@ -6,12 +6,12 @@ Keep one work directory for the session under the system temp directory, or
 under the scratch directory your agent CLI gives you. For round N, put each
 page's source in `WORK/src/N/<page-id>/`: its JSON source and the files it
 names. Write the round's `pages.json` to `WORK/src/N/`, beside the page
-directories, and build pages to `WORK/out/N/`. `pages.json` lists the pages
-that follow Agreed, in order, as
+directories, and build pages to `WORK/out/N/`. `pages.json` lists the pages that
+follow Agreed, in order, as
 `{ "pages": [{ "id": "policy", "title": "Retry policy" }] }`.
 
-Build Agreed and publish it with the page list, then build and publish each
-page as soon as it is ready. Give each publish that leaves pages unpublished
+Build Agreed and publish it with the page list, then build and publish each page
+as soon as it is ready. Give each publish that leaves pages unpublished
 `--start ID` for the page you work on next. In the commands, `SRC` is
 `WORK/src/N` and `OUT` is `WORK/out/N`:
 
@@ -22,32 +22,30 @@ pair build SRC/policy/policy.json OUT/policy.html
 pair publish --file OUT/policy.html --source SRC/policy --session-dir PATH
 ```
 
-`pair build` lists every structural problem in a source and writes nothing
-when it finds one. It refuses to overwrite, so build a change to a new path
-or delete the old output first. `pair publish --source SRC/policy` copies
-that directory to the session's `src/<round>/<page-id>/`, so keep built
-pages, previews and scratch files out of it. To revise an earlier round's
-page, copy its source from there and change its `round` to this one. Embed
-every local resource a page uses. `pair build` refuses a page whose embedded
-images total more than about 6.7 MB, so crop or resize each screenshot before
-you embed it.
+`pair build` lists every structural problem in a source and writes nothing when
+it finds one. It refuses to overwrite, so build a change to a new path or delete
+the old output first. `pair publish --source SRC/policy` copies that directory
+to the session's `src/<round>/<page-id>/`, so keep built pages, previews and
+scratch files out of it. To revise an earlier round's page, copy its source from
+there and change its `round` to this one. Embed every local resource a page
+uses. `pair build` refuses a page whose embedded images total more than about
+6.7 MB, so crop or resize each screenshot before you embed it.
 
-You cannot change a page in its round after you publish it.
-`pair publish` checks each `#` link on the pages after Agreed, and refuses
-a page with a link that points to neither a page of the round nor an
-element on that page. Only open a page in a browser when it has CSS or a
-script you wrote and you cannot judge it from the source.
+You cannot change a page in its round after you publish it. `pair publish`
+checks each `#` link on the pages after Agreed, and refuses a page with a link
+that points to neither a page of the round nor an element on that page. Only
+open a page in a browser when it has CSS or a script you wrote and you cannot
+judge it from the source.
 
 In a round, you write Agreed and the pages, with their CSS, JavaScript and
-prototypes. The frame, pair's components, the `pair` command and the hub
-are pair's own code. If the reviewer asks you to change one of them, say so
-in the chat and plan it as work on pair.
+prototypes. The frame, pair's components, the `pair` command and the hub are
+pair's own code. If the reviewer asks you to change one of them, say so in the
+chat and plan it as work on pair.
 
 ## Source fields
 
-Agreed and every other page share the outer fields `name`, `round` and
-`title`. Agreed also needs a `task`. Run `pair guide agreements.md` for
-its fields.
+Agreed and every other page share the outer fields `name`, `round` and `title`.
+Agreed also needs a `task`. Run `pair guide agreements.md` for its fields.
 
 ```json
 {
@@ -93,24 +91,24 @@ its fields.
 | page.js    | Optional module that exports `setup(root, planUI)`.                                               |
 | prototypes | Optional prototypes for this page. Run `pair guide prototypes.md` for their fields.               |
 
-Give each page an ID that no other page in the round uses. `agreed` is
-only for the Agreed page, and you cannot use `feedback` or `work`.
+Give each page an ID that no other page in the round uses. `agreed` is only for
+the Agreed page, and you cannot use `feedback` or `work`.
 
 Page HTML runs as you wrote it, and the reviewer's comments are plain text.
-Never put a comment into a page's HTML or JavaScript where it could run,
-and never put the agent token in a page.
+Never put a comment into a page's HTML or JavaScript where it could run, and
+never put the agent token in a page.
 
 ## Page content
 
 The frame draws the header, the navigation, the page title and the comment
 control. Write page HTML as a fragment that starts below the title, with no
-`h1`, which `pair build` refuses. The frame styles text, tables, code,
-theme colors, focus and selected choices, but has no card or column
-layouts, so lay the page out with its own HTML and CSS.
+`h1`, which `pair build` refuses. The frame styles text, tables, code, theme
+colors, focus and selected choices, but has no card or column layouts, so lay
+the page out with its own HTML and CSS.
 
 `pair build` scopes a page's CSS to that page and puts it in a cascade layer
-beneath the components, so page CSS does not restyle another page, and does
-not restyle a component unless the rule is marked `!important`.
+beneath the components, so page CSS does not restyle another page, and does not
+restyle a component unless the rule is marked `!important`.
 
 Style what the page draws itself with the frame's design tokens, and do not
 redefine them. Each token has a light and a dark value: `--ground` (the page
@@ -119,13 +117,13 @@ popovers), `--line` and `--line-strong`, `--ink`, `--muted`, `--accent`,
 `--accent-ink` (text on an `--accent` fill, not accent-colored text),
 `--accent-soft`, `--attention` and `--attention-bg` (needs you), `--ok` and
 `--ok-bg` (sent, accepted), `--danger` and `--danger-bg` (removed), `--code`,
-and `--mark` (noted text). Do not color preferred options green or
-alternatives red to express preference.
+and `--mark` (noted text). Do not color preferred options green or alternatives
+red to express preference.
 
-Type is the system stack: 13px chrome, 13.5px to 15px reading, 22px page
-titles, uppercase 10.5px labels. Radii are 10px for cards, 7px for buttons,
-6px for rows. The reading column is 822px wide by default and can be much
-wider, so size text, figures, grids and images to the column, not to 822px.
+Type is the system stack: 13px chrome, 13.5px to 15px reading, 22px page titles,
+uppercase 10.5px labels. Radii are 10px for cards, 7px for buttons, 6px for
+rows. The reading column is 822px wide by default and can be much wider, so size
+text, figures, grids and images to the column, not to 822px.
 
 ## Controls
 
@@ -149,40 +147,39 @@ wider, so size text, figures, grids and images to the column, not to 822px.
 | planUI.mode                          | live, readonly or preview.                                                                                                                                         |
 | plan:page, plan:theme                | Window events after each page render (detail has page, element and round) and after a theme change.                                                                |
 
-The frame sets `aria-pressed` and checkbox state from the reviewer's draft,
-so do not set `aria-pressed` or `checked` yourself. Give each group an ID
-that no other group on the page uses, of any kind, and give each option an
-ID that no other option in its group uses. When a topic continues
-in the next round, keep its page ID, control IDs and labels, so the frame
-keeps the reviewer's unsent draft on it. Put checklist markup in the page
-HTML, not in a script, so the reviewer's feedback includes every
-checklist, even on pages they never opened. Keep every control you add
-focusable.
+The frame sets `aria-pressed` and checkbox state from the reviewer's draft, so
+do not set `aria-pressed` or `checked` yourself. Give each group an ID that no
+other group on the page uses, of any kind, and give each option an ID that no
+other option in its group uses. When a topic continues in the next round, keep
+its page ID, control IDs and labels, so the frame keeps the reviewer's unsent
+draft on it. Put checklist markup in the page HTML, not in a script, so the
+reviewer's feedback includes every checklist, even on pages they never opened.
+Keep every control you add focusable.
 
 ## Page JavaScript
 
-Page JavaScript exports `setup(root, planUI)`, which the frame calls each
-time the page renders, with the page's content element as `root`. Script
-elements inside page HTML do not execute.
+Page JavaScript exports `setup(root, planUI)`, which the frame calls each time
+the page renders, with the page's content element as `root`. Script elements
+inside page HTML do not execute.
 
-Only change elements inside `root`. `pair build` refuses a script that
-writes to `document.body` or `document.documentElement`, such as setting
-their `style`, `className`, `classList`, `dataset` or `innerHTML` or calling
-their `setAttribute`, `append`, `prepend` or `remove`, because those change
-the whole frame. Reading them, such as the body's width, is allowed.
+Only change elements inside `root`. `pair build` refuses a script that writes to
+`document.body` or `document.documentElement`, such as setting their `style`,
+`className`, `classList`, `dataset` or `innerHTML` or calling their
+`setAttribute`, `append`, `prepend` or `remove`, because those change the whole
+frame. Reading them, such as the body's width, is allowed.
 
 ### Custom Pele rendering
 
-For custom diagrams, load Pele with `await planUI.pele()` and use its native
-API on an element you own. Leave `data-diagram` off that element. Use
-`render`, `mount`, `parse`, `enableZoom` and the other native exports with
-Pele's own options, including callbacks, icon resolvers and configuration.
-Handle a rejected load in your page script. Read the native API at
-`https://pele.run/api` and the public CSS reference at
-`https://pele.run/theming` when choosing methods, options and selectors.
+For custom diagrams, load Pele with `await planUI.pele()` and use its native API
+on an element you own. Leave `data-diagram` off that element. Use `render`,
+`mount`, `parse`, `enableZoom` and the other native exports with Pele's own
+options, including callbacks, icon resolvers and configuration. Handle a
+rejected load in your page script. Read the native API at `https://pele.run/api`
+and the public CSS reference at `https://pele.run/theming` when choosing
+methods, options and selectors.
 
-For a responsive diagram, call `mount` and destroy it when its host is
-removed. Observe `root`, whose children the frame replaces on each visit:
+For a responsive diagram, call `mount` and destroy it when its host is removed.
+Observe `root`, whose children the frame replaces on each visit:
 
 ```js
 export async function setup(root, planUI) {
@@ -204,20 +201,19 @@ export async function setup(root, planUI) {
 }
 ```
 
-For a single render, use `pele.render(source, options)` and insert its
-`svg` into your host. Supply the host's font and available width in the
-options. Use page CSS for Pele's public theme variables, SVG classes and
-source IDs. Use `onRender` to reapply custom interactions after a mount
-redraws. To include a selection in feedback, connect it to an existing
-choice or answer control.
+For a single render, use `pele.render(source, options)` and insert its `svg`
+into your host. Supply the host's font and available width in the options. Use
+page CSS for Pele's public theme variables, SVG classes and source IDs. Use
+`onRender` to reapply custom interactions after a mount redraws. To include a
+selection in feedback, connect it to an existing choice or answer control.
 
 ## Comments
 
-The reviewer can comment on the whole page, on any block or on selected
-text, without any control you add. The frame files a note on a block under
-the block's heading, `data-title`, `data-file`, figure title or caption,
-or else under the heading above it. Give each block a distinct name, so
-you can tell which block each note is about.
+The reviewer can comment on the whole page, on any block or on selected text,
+without any control you add. The frame files a note on a block under the block's
+heading, `data-title`, `data-file`, figure title or caption, or else under the
+heading above it. Give each block a distinct name, so you can tell which block
+each note is about.
 
 ## Figures
 

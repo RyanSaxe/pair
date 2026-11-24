@@ -35,6 +35,30 @@ test("a wake from inside agy runs agentapi with the session's conversation, lang
   ]);
 });
 
+const asConversation = (id) => ({ env: { ANTIGRAVITY_CONVERSATION_ID: id } });
+
+const runHook = (
+  cli,
+  {
+    args = [],
+    lastUserInput = "Check the failing tests.",
+    conversationId = "conv-hook",
+    env = { ANTIGRAVITY_CONVERSATION_ID: conversationId },
+  } = {},
+) =>
+  cli.run(["register", "--hook", ...args], {
+    input: JSON.stringify({
+      conversationId,
+      invocationNum: 0,
+      lastUserInput,
+    }),
+    env,
+  });
+
+const neverRead = async () => {
+  throw new Error("readAgents should not run for non-interactive agy");
+};
+
 // An agy subagent shares its parent's agy process with a conversation ID of
 // its own. Without parentSession it would replace its parent's entry in pair
 // agents; with parentSession and subagentTool, pair refuses to list it, names
@@ -85,9 +109,10 @@ if (command === "get-conversation-metadata") {
       ANTIGRAVITY_AGENTAPI_EXE: process.execPath,
     },
   });
-  const as = (id) => ({ env: { ANTIGRAVITY_CONVERSATION_ID: id } });
-
-  const registered = await agy.run(["register", "--json"], as("conv-root"));
+  const registered = await agy.run(
+    ["register", "--json"],
+    asConversation("conv-root"),
+  );
   assert.equal(registered.status, 0, registered.stderr);
   const { name: rootName } = JSON.parse(registered.stdout);
 
@@ -95,7 +120,7 @@ if (command === "get-conversation-metadata") {
     ["conv-sub", "Codebase Researcher"],
     ["conv-nested", "Deep Reader"],
   ]) {
-    const refused = await agy.run(["register"], as(id));
+    const refused = await agy.run(["register"], asConversation(id));
     assert.equal(refused.status, 1, refused.stdout);
     assert.ok(refused.stderr.includes(`${rootName}/${role}`), refused.stderr);
   }
@@ -109,7 +134,7 @@ if (command === "get-conversation-metadata") {
   // send_message.
   const fromSub = await agy.run(
     ["message", "--to", rootName, "--text", "Found the bug."],
-    as("conv-sub"),
+    asConversation("conv-sub"),
   );
   assert.equal(fromSub.status, 0, fromSub.stderr);
 
@@ -123,7 +148,7 @@ if (command === "get-conversation-metadata") {
       "--text",
       "Check the tests.",
     ],
-    as("conv-root"),
+    asConversation("conv-root"),
   );
   assert.equal(toSub.status, 0, toSub.stderr);
 
@@ -156,46 +181,29 @@ test("pair register --hook guides an unregistered agy process once per process a
   const directory = await folder("app");
   const hookEnv = { ANTIGRAVITY_CONVERSATION_ID: "conv-hook" };
   const agy = await agent(directory, { harness: "antigravity" });
-  const hook = (
-    cli,
-    {
-      args = [],
-      lastUserInput = "Check the failing tests.",
-      conversationId = "conv-hook",
-      env = { ANTIGRAVITY_CONVERSATION_ID: conversationId },
-    } = {},
-  ) =>
-    cli.run(["register", "--hook", ...args], {
-      input: JSON.stringify({
-        conversationId,
-        invocationNum: 0,
-        lastUserInput,
-      }),
-      env,
-    });
 
-  const first = await hook(agy);
+  const first = await runHook(agy);
   assert.equal(first.status, 0, first.stderr);
   assert.match(
     JSON.parse(first.stdout).injectSteps[0].ephemeralMessage,
     /pair register/,
   );
 
-  const named = await hook(agy, { args: ["--name", "worker"] });
+  const named = await runHook(agy, { args: ["--name", "worker"] });
   assert.equal(named.status, 0, named.stderr);
   assert.match(
     JSON.parse(named.stdout).injectSteps[0].ephemeralMessage,
     /pair register --name worker/,
   );
 
-  const spawned = await hook(agy, {
+  const spawned = await runHook(agy, {
     lastUserInput: "In your own shell, run pair register --name worker first.",
   });
   assert.equal(spawned.status, 0, spawned.stderr);
   assert.equal(spawned.stdout, "");
 
   // With all four wake variables present, register --hook registers directly.
-  const direct = await hook(agy, {
+  const direct = await runHook(agy, {
     env: {
       ANTIGRAVITY_CONVERSATION_ID: "conv-hook",
       ANTIGRAVITY_LS_ADDRESS: "localhost:61712",
@@ -208,7 +216,7 @@ test("pair register --hook guides an unregistered agy process once per process a
 
   // Once listed, later turns and subagents of that agy process print nothing.
   for (const conversationId of ["conv-hook", "conv-sub-hook"]) {
-    const after = await hook(agy, {
+    const after = await runHook(agy, {
       conversationId,
       lastUserInput: "Continue.",
     });
@@ -218,16 +226,13 @@ test("pair register --hook guides an unregistered agy process once per process a
 
   // A new agy process (such as after `agy -c`) receives the instruction again.
   const restarted = await agent(directory, { harness: "antigravity" });
-  const again = await hook(restarted, { lastUserInput: "Continue." });
+  const again = await runHook(restarted, { lastUserInput: "Continue." });
   assert.equal(again.status, 0, again.stderr);
   assert.match(
     JSON.parse(again.stdout).injectSteps[0].ephemeralMessage,
     /pair register/,
   );
 
-  const neverRead = async () => {
-    throw new Error("readAgents should not run for non-interactive agy");
-  };
   for (const args of [
     "agy -p 'Reply OK'",
     'agy.exe "-p" "Reply OK"',

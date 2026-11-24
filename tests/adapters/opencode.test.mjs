@@ -100,23 +100,52 @@ test("pair's plugin registers each opencode session when opencode creates it, an
   ]);
 });
 
+const opencode1Child = ({ id, task, agent, created }) => ({
+  id,
+  title: `${task} (@${agent} subagent)`,
+  agent,
+  time: { created },
+});
+const toAgent = (id, agent, text) => ({
+  path: { id },
+  body: { agent, parts: [{ type: "text", text }] },
+});
+const refusal = async (copy) =>
+  (await import(`../../adapters/opencode/wake.mjs?${copy}`)).unwakeable;
+const opencode2Child = ({ id, title, agent, created }) => ({
+  id,
+  parentID: "ses_1",
+  title,
+  agent,
+  time: { created },
+});
+
 // opencode 1's task tool titles a subagent's session "TASK (@AGENT
 // subagent)", and a prompt without an agent runs under the default agent.
 test("an opencode message to a subagent prompts the newest session of that subagent, under its agent", async (t) => {
   const { client, prompts } = standInClient();
-  const child = (id, task, agent, created) => ({
-    id,
-    title: `${task} (@${agent} subagent)`,
-    agent,
-    time: { created },
-  });
   client.session.children = async ({ path: { id } }) => ({
     data:
       id === "ses_1"
         ? [
-            child("ses_a", "Review the diff", "reviewer", 1),
-            child("ses_b", "Review the diff again", "reviewer", 2),
-            child("ses_c", "Find the tests", "explore", 3),
+            opencode1Child({
+              id: "ses_a",
+              task: "Review the diff",
+              agent: "reviewer",
+              created: 1,
+            }),
+            opencode1Child({
+              id: "ses_b",
+              task: "Review the diff again",
+              agent: "reviewer",
+              created: 2,
+            }),
+            opencode1Child({
+              id: "ses_c",
+              task: "Find the tests",
+              agent: "explore",
+              created: 3,
+            }),
           ]
         : [],
   });
@@ -129,10 +158,6 @@ test("an opencode message to a subagent prompts the newest session of that subag
   });
   await wakeRunner({ ...target, subagent: "reviewer" }, "first");
   await wakeRunner({ ...target, subagent: "find the tests" }, "second");
-  const toAgent = (id, agent, text) => ({
-    path: { id },
-    body: { agent, parts: [{ type: "text", text }] },
-  });
   assert.deepEqual(prompts, [
     toAgent("ses_b", "reviewer", "first"),
     toAgent("ses_c", "explore", "second"),
@@ -158,8 +183,6 @@ test("start in opencode without the plugin names the config file to add it to", 
   const folder = fileURLToPath(
     new URL("../../adapters/opencode", import.meta.url),
   );
-  const refusal = async (copy) =>
-    (await import(`../../adapters/opencode/wake.mjs?${copy}`)).unwakeable;
   const line = (file) =>
     `Ask the user to add "${folder}" to "plugin" in ${file}, or "${path.join(folder, "plugin.js")}" on opencode 1, and restart opencode with \`opencode --continue\`, then run this pair command again. This opencode session runs without pair's plugin, so the hub cannot wake it.`;
   const config = path.join(home, "opencode");
@@ -178,13 +201,13 @@ test("start in opencode without the plugin names the config file to add it to", 
 function standInContext() {
   const prompts = [];
   const queue = [];
-  let next = () => {};
+  let next = null;
   const ctx = {
     children: [],
     shellHook: null,
     emit(event) {
       queue.push(event);
-      next();
+      next?.();
     },
     session: {
       async get() {
@@ -288,16 +311,19 @@ test("an opencode 2 session runs only while a window with the start time it reco
 // opencode 2's task tool titles a subagent's session with its task.
 test("an opencode 2 wake prompts the session, or the newest subagent session with that task or agent", async (t) => {
   const { ctx, prompts } = standInContext();
-  const child = (id, title, agent, created) => ({
-    id,
-    parentID: "ses_1",
-    title,
-    agent,
-    time: { created },
-  });
   ctx.children = [
-    child("ses_a", "Review the diff", "reviewer", 1),
-    child("ses_b", "Review the diff again", "reviewer", 2),
+    opencode2Child({
+      id: "ses_a",
+      title: "Review the diff",
+      agent: "reviewer",
+      created: 1,
+    }),
+    opencode2Child({
+      id: "ses_b",
+      title: "Review the diff again",
+      agent: "reviewer",
+      created: 2,
+    }),
   ];
   const cleanup = await serverPlugin.setup(ctx);
   t.after(() => cleanup());

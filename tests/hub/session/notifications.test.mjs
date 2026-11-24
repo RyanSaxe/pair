@@ -72,8 +72,8 @@ test("the notifications route lists every thread with its newest message, and th
   assert.equal((await a.action("read")).code, 200);
   assert.equal((await a.publish(planData("2"))).code, 200);
   assert.deepEqual(
-    (await lines()).threads.map(({ thread }) => thread).sort(),
-    [answered, waiting].sort(),
+    (await lines()).threads.map(({ thread }) => thread).toSorted(),
+    [answered, waiting].toSorted(),
   );
 
   const { sessions } = (await a.request("/api/sessions")).body;

@@ -11,8 +11,9 @@ import { nextOf } from "./submissions.mjs";
 // it was, wherever its work runs.
 export const answersRound = (event) => event.payload.intent !== "start";
 const sameAgent = (a, b) => a?.harness === b?.harness && a?.id === b?.id;
+const clock = (at) => new Date(at).toTimeString().slice(0, 5);
 export function agent(session) {
-  const { directory, config, transition, pending, view } = session;
+  const { directory, transition, pending, view } = session;
   const command = (name) => `pair ${name} --session-dir ${directory}`;
   const closed = "The reviewer closed this session. Stop working on it.";
   const handoff = `To take over pair session ${directory}, run ${command("start")} and follow what it prints.`;
@@ -163,7 +164,7 @@ export function agent(session) {
   // wake, so no poll announces them. The seen lists drop the keys of a session
   // that is not listed, so markSeen runs right after the transition, before
   // the hub handles another request.
-  async function reopen(agent, holder) {
+  async function reopen(caller, holder) {
     await session.clearActivity();
     await transition({
       ...report(),
@@ -171,7 +172,7 @@ export function agent(session) {
       closedAt: null,
       holder,
       formerHolders: (session.state.formerHolders || []).filter(
-        (item) => !sameAgent(item, agent),
+        (item) => !sameAgent(item, caller),
       ),
     });
     const { sessionId } = session.state;
@@ -189,10 +190,9 @@ export function agent(session) {
   // instead of publishing over its successor. After that, a command other
   // than start from any agent but the holder fails with the message to take
   // the session over with pair start if the reviewer asks.
-  async function requireHolder(agent, start = false) {
-    const clock = (at) => new Date(at).toTimeString().slice(0, 5);
+  async function requireHolder(caller, start = false) {
     const former = (session.state.formerHolders || []).find((item) =>
-      sameAgent(item, agent),
+      sameAgent(item, caller),
     );
     if (former) {
       await transition({
@@ -209,7 +209,7 @@ export function agent(session) {
     if (
       !start &&
       session.state.holder &&
-      !sameAgent(session.state.holder, agent)
+      !sameAgent(session.state.holder, caller)
     )
       requireValue(
         false,
@@ -265,7 +265,7 @@ export function agent(session) {
   const submissionBefore = (sequence = Infinity) =>
     session.events
       .filter((item) => item.sequence < sequence)
-      .sort((a, b) => b.sequence - a.sequence)[0];
+      .toSorted((a, b) => b.sequence - a.sequence)[0];
   async function readFeedback(data) {
     // With an id, readFeedback returns that submission again and changes
     // nothing, for an agent turn that resumes after an interruption.
@@ -287,13 +287,13 @@ export function agent(session) {
     }
     const [event] = await pending();
     const declined = await session.reportDeclined();
-    const closed = await session.reportClosed();
+    const closedCards = await session.reportClosed();
     if (!event)
       return {
         status: view(),
         ...readAnswer(null, submissionBefore()),
         declined,
-        closed,
+        closed: closedCards,
         next: await nextStep(),
       };
     const patch = {
@@ -309,7 +309,7 @@ export function agent(session) {
       status: view(),
       ...readAnswer(event, submissionBefore(event.sequence)),
       declined,
-      closed,
+      closed: closedCards,
       next: await startNext(where, proposal),
     };
   }
@@ -441,9 +441,9 @@ export function agent(session) {
     const start = options.start === true;
     const { created } = options;
     const title = typeof options.title === "string" && options.title.trim();
-    const agent = identify(target);
+    const caller = identify(target);
     const held = session.state.holder;
-    const same = sameAgent(held, agent);
+    const same = sameAgent(held, caller);
     // act then runs or refuses the command. Without this return, a former
     // holder's pair status would make requireHolder use up its takeover
     // notice.
@@ -452,7 +452,7 @@ export function agent(session) {
     // folder is where the agent ran pair start, and Start agent starts a new
     // agent there.
     const holder = {
-      ...(same ? held : { ...agent, at }),
+      ...(same ? held : { ...caller, at }),
       commandAt: at,
       ...(start && options.folder ? { folder: options.folder } : {}),
     };
@@ -463,8 +463,8 @@ export function agent(session) {
     const wasLive = live();
     const reopening =
       start && options.reopen === true && accepts(session.state, "reopen");
-    if (reopening) await reopen(agent, holder);
-    await requireHolder(agent, start);
+    if (reopening) await reopen(caller, holder);
+    await requireHolder(caller, start);
     await atomic(session.wakeFile, target);
     session.wake = target;
     const patch = {
@@ -479,7 +479,7 @@ export function agent(session) {
     // clears it.
     if (!same && held)
       Object.assign(patch, report(), {
-        takeover: { name: adapters[agent.harness].name, at },
+        takeover: { name: adapters[caller.harness].name, at },
         formerHolders: [
           ...(session.state.formerHolders || []),
           { harness: held.harness, id: held.id, until: at },

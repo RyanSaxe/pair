@@ -70,8 +70,8 @@ async function compareFiles(beforePath, afterPath) {
   } catch (error) {
     if (error.code === 1) patch = error.stdout;
     else if (error.code === "ENOENT")
-      throw Error("Git is required to generate a diff.");
-    else throw Error(error.stderr?.trim() || error.message);
+      throw Error("Git is required to generate a diff.", { cause: error });
+    else throw Error(error.stderr?.trim() || error.message, { cause: error });
   }
   return { before, after, patch: named(patch, path.basename(paths[1])) };
 }

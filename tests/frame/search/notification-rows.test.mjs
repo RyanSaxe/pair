@@ -12,7 +12,7 @@ import { bellLines } from "#frame/sync/center.mjs";
 
 const THIS = "here";
 const at = (minute) => `2026-09-28T10:${String(minute).padStart(2, "0")}:00Z`;
-const reply = (id, thread, message, minute, extra = {}) => ({
+const reply = ({ id, thread, message, minute, ...extra }) => ({
   id,
   kind: "reply",
   name: "A mascot pet",
@@ -24,7 +24,7 @@ const reply = (id, thread, message, minute, extra = {}) => ({
   at: at(minute),
   ...extra,
 });
-const session = (id, title, events, extra = {}) => ({
+const session = ({ id, title, events, ...extra }) => ({
   id,
   title,
   round: "2",
@@ -33,16 +33,20 @@ const session = (id, title, events, extra = {}) => ({
   ...extra,
 });
 const rowsFor = (sessions, lines = {}, cleared = new Set()) =>
-  notificationRows(sessions, lines, cleared, THIS);
+  notificationRows(sessions, { threadLines: lines, cleared, thisId: THIS });
 const rowOf = (rows, key) => rows.find((row) => row.key === key);
 
 test("two new replies in a thread make one row with both IDs, its newest words and its count", () => {
   const sessions = [
-    session(THIS, "Here", [
-      reply("first", "t", 1, 1),
-      reply("second", "t", 3, 2),
-      reply("other", "u", 1, 3),
-    ]),
+    session({
+      id: THIS,
+      title: "Here",
+      events: [
+        reply({ id: "first", thread: "t", message: 1, minute: 1 }),
+        reply({ id: "second", thread: "t", message: 3, minute: 2 }),
+        reply({ id: "other", thread: "u", message: 1, minute: 3 }),
+      ],
+    }),
   ];
   const rows = bellRows(bellLines(sessions, new Set(), THIS), THIS);
   assert.equal(rows.length, 2);
@@ -60,7 +64,9 @@ test("a session start is listed and never unread", () => {
     agent: "Claude Code",
     at: at(1),
   };
-  const rows = rowsFor([session("other", "Elsewhere", [start])]);
+  const rows = rowsFor([
+    session({ id: "other", title: "Elsewhere", events: [start] }),
+  ]);
   assert.equal(rows.length, 1);
   assert.equal(rows[0].kind, "session");
   assert.equal(rows[0].state, "read");
@@ -80,15 +86,19 @@ test("each row's words read as approved in every state", () => {
     ...extra,
   });
   const sessions = [
-    session(THIS, "Here", [
-      reply("h2", "fresh", 1, 1),
-      reply("h3", "fresh", 3, 2),
-    ]),
-    session(
-      "other",
-      "Elsewhere",
-      [
-        reply("o1", "far", 1, 3),
+    session({
+      id: THIS,
+      title: "Here",
+      events: [
+        reply({ id: "h2", thread: "fresh", message: 1, minute: 1 }),
+        reply({ id: "h3", thread: "fresh", message: 3, minute: 2 }),
+      ],
+    }),
+    session({
+      id: "other",
+      title: "Elsewhere",
+      events: [
+        reply({ id: "o1", thread: "far", message: 1, minute: 3 }),
         { id: "w", kind: "waiting", round: "2", at: at(4) },
         { id: "w1", kind: "waiting", round: "1", at: at(1) },
         {
@@ -107,8 +117,8 @@ test("each row's words read as approved in every state", () => {
           at: at(6),
         },
       ],
-      { needsYou: true },
-    ),
+      needsYou: true,
+    }),
   ];
   const lines = {
     [THIS]: {
@@ -194,18 +204,23 @@ test("each row's words read as approved in every state", () => {
 
 test("a closed session lists no rows", () => {
   const rows = rowsFor([
-    session("gone", "Gone", [reply("r", "t", 1, 1)], { closed: true }),
+    session({
+      id: "gone",
+      title: "Gone",
+      events: [reply({ id: "r", thread: "t", message: 1, minute: 1 })],
+      closed: true,
+    }),
   ]);
   assert.deepEqual(rows, []);
 });
 
 test("a row goes to its message, its card or its round's first page, as a search result does", () => {
   const sessions = [
-    session(
-      THIS,
-      "Here",
-      [
-        reply("r", "t", 3, 1),
+    session({
+      id: THIS,
+      title: "Here",
+      events: [
+        reply({ id: "r", thread: "t", message: 3, minute: 1 }),
         {
           id: "p",
           kind: "proposal",
@@ -217,8 +232,8 @@ test("a row goes to its message, its card or its round's first page, as a search
         { id: "w", kind: "waiting", round: "1", at: at(3) },
         { id: "s", kind: "session", agent: "Claude Code", at: at(4) },
       ],
-      { needsYou: true },
-    ),
+      needsYou: true,
+    }),
   ];
   const rows = rowsFor(sessions);
   const thread = previewRow(rowOf(rows, "thread:t"));
@@ -239,9 +254,19 @@ test("a row goes to its message, its card or its round's first page, as a search
 
 test("a row escapes an agent's words, and marks the words typed in the field", () => {
   const [row] = rowsFor([
-    session(THIS, "Here", [
-      reply("r", "t", 1, 1, { words: "A <img src=x> frozen <b>word</b>" }),
-    ]),
+    session({
+      id: THIS,
+      title: "Here",
+      events: [
+        reply({
+          id: "r",
+          thread: "t",
+          message: 1,
+          minute: 1,
+          words: "A <img src=x> frozen <b>word</b>",
+        }),
+      ],
+    }),
   ]);
   const html = rowHtml(row, 0, { selected: -1, query: "frozen" });
   assert.equal(html.includes("<img"), false);

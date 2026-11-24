@@ -305,6 +305,16 @@ test("the filters, the count and a long query's message fit the results at the n
   }
 });
 
+const blockText = () =>
+  [
+    ...document
+      .querySelector(".search-frame.is-shown")
+      .contentDocument.querySelectorAll("#page-content > *"),
+  ]
+    .filter((element) => getComputedStyle(element).display !== "none")
+    .map((element) => element.textContent)
+    .join(" ");
+
 for (const engine of ["chrome", "webkit"])
   test(`on a phone in ${engine}, the best result shows under the results, and the next is one tap`, async (t) => {
     const { page } = await searchPage(t, {
@@ -345,15 +355,6 @@ for (const engine of ["chrome", "webkit"])
     assert.equal(await preview.isVisible(), true);
 
     // The next result is one tap, with the results still above.
-    const blockText = () =>
-      [
-        ...document
-          .querySelector(".search-frame.is-shown")
-          .contentDocument.querySelectorAll("#page-content > *"),
-      ]
-        .filter((element) => getComputedStyle(element).display !== "none")
-        .map((element) => element.textContent)
-        .join(" ");
     await page.locator(".search-frame.is-shown").waitFor();
     const first = await page.evaluate(blockText);
     await page.locator(".search-row").nth(1).tap();
@@ -395,8 +396,7 @@ test("round numbers show for one session, and a label stays short however much i
       .locator(".search-menu-button span")
       .evaluateAll(
         (labels) =>
-          labels.filter((label) => label.scrollWidth > label.clientWidth)
-            .length,
+          labels.filter((item) => item.scrollWidth > item.clientWidth).length,
       );
   assert.equal(await trimmed(), 0);
   // The sessions list loads as search opens.

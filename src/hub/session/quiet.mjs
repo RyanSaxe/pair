@@ -53,7 +53,7 @@ function updates(items, directory) {
     .join(", and ");
 }
 
-export function quietStep(items, now, ms, directory) {
+export function quietStep(items, { now, ms, directory }) {
   const since = {
     page: "last note",
     proposal: "parts last changed",
@@ -87,6 +87,8 @@ export function quietWake(items, ms, directory) {
   return `pair: no pair command has run in session ${directory} for ${count(minutes(ms), "minute")}, and these have had no update in that time: ${named}. Between your current steps, ${updates(items, directory)}, then go on with your work.${cards}`;
 }
 
+const quietKey = (item) => `${item.kind} ${item.id} ${item.at}`;
+
 export function quiet(session) {
   const { directory, config } = session;
   // woken contains a key for each quiet page or card already named in a
@@ -99,7 +101,6 @@ export function quiet(session) {
   const loadedAt = Date.now();
   const idleSince = () =>
     Math.max(loadedAt, Date.parse(session.state.holder?.commandAt) || 0);
-  const key = (item) => `${item.kind} ${item.id} ${item.at}`;
   const items = (now) =>
     !accepts(session.state, "wake")
       ? []
@@ -116,22 +117,22 @@ export function quiet(session) {
       ? finishedStep(session.proposalItems(), directory)
       : null;
   function quietLine(now = Date.now()) {
-    const quiet = items(now);
-    return quiet.length
-      ? quietStep(quiet, now, config.quietMs, directory)
+    const due = items(now);
+    return due.length
+      ? quietStep(due, { now, ms: config.quietMs, directory })
       : null;
   }
   // The hub's timer calls wakeIfQuiet. It sends no second wake for a page
   // or card that was in an earlier wake and has had no update since, and a
   // wake for newly quiet work names all the quiet work.
   async function wakeIfQuiet(now = Date.now()) {
-    const quiet = items(now);
-    woken = new Set(quiet.map(key).filter((item) => woken.has(item)));
+    const due = items(now);
+    woken = new Set(due.map(quietKey).filter((item) => woken.has(item)));
     if (!session.wake || !session.state.holder) return;
     if (now - idleSince() <= config.quietMs) return;
-    if (quiet.every((item) => woken.has(key(item)))) return;
-    for (const item of quiet) woken.add(key(item));
-    await session.sendWake(quietWake(quiet, config.quietMs, directory));
+    if (due.every((item) => woken.has(quietKey(item)))) return;
+    for (const item of due) woken.add(quietKey(item));
+    await session.sendWake(quietWake(due, config.quietMs, directory));
   }
   return { finishedLine, quietLine, wakeIfQuiet };
 }

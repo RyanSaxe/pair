@@ -7,6 +7,9 @@ import { propose, replied, sessions } from "../support/notifications.mjs";
 // The frame in each tab polls the session list every 5 s, so each wait allows 8
 // s.
 const poll = { timeout: 8000 };
+const bellCount = (page) => page.locator("#bell-count").textContent();
+const pageNew = (page) =>
+  page.locator('#page-list [data-page="overview"] .page-new');
 
 // Two browser contexts with separate storage stand for a computer and a phone
 // on one hub. The hub stores what the reviewer clears, opens and sees in one
@@ -40,9 +43,6 @@ test("two browsers on one hub show the same bell, sessions badge and New marks",
   if (!computer) return;
   const phone = await open(t, url, { viewport: { width: 375, height: 812 } });
   const both = [computer, phone];
-  const bellCount = (page) => page.locator("#bell-count").textContent();
-  const pageNew = (page) =>
-    page.locator('#page-list [data-page="overview"] .page-new');
   for (const page of both) {
     await page.locator("#bell-count").waitFor(poll);
     await page.locator("#menu-button.need").waitFor(poll);
@@ -226,14 +226,14 @@ test("a tab on Work when its session reopens never draws a New mark, and a card 
   data.pages[0].html +=
     '<div class="proposal" data-proposal="tidy" data-kind="proposal"><p><b>Tidy</b></p><p>Tidy work.</p></div>';
   assert.equal((await own.publish(data)).code, 200);
-  const propose = (id, title) =>
+  const addProposal = (id, title) =>
     own.action("propose", {
       id,
       title,
       delivers: "The list, tidied.",
       recommend: "here",
     });
-  assert.equal((await propose("tidy", "Tidy the list")).code, 200);
+  assert.equal((await addProposal("tidy", "Tidy the list")).code, 200);
   const empty = { cleared: [], opened: [], cards: [] };
   assert.equal((await own.request("/api/seen", empty)).code, 200);
   const page = await open(t, "about:blank");
@@ -276,7 +276,7 @@ test("a tab on Work when its session reopens never draws a New mark, and a card 
   );
   assert.deepEqual(await page.evaluate(() => [...window.drawnNew]), []);
 
-  assert.equal((await propose("later", "Later work")).code, 200);
+  assert.equal((await addProposal("later", "Later work")).code, 200);
   await page.reload();
   await page
     .locator("#work-cards [data-proposal-card=later] .page-new")

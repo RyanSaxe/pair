@@ -291,13 +291,13 @@ async function whenDrawn(mine) {
   const limit = performance.now() + DRAW_LIMIT_MS;
   // The frame hides a page until its first draw is done, and until then no word
   // counts as showing. Each pass waits on a timer, so the page keeps running.
-  do await wait(REMARK_MS);
-  while (
-    active === mine &&
+  do {
+    await wait(REMARK_MS);
+    if (active !== mine) return;
+  } while (
     performance.now() < limit &&
     (renders.size || !showing(mine) || performance.now() - changedAt < QUIET_MS)
   );
-  if (active !== mine) return;
   mine.drawn = true;
   mine.scrolledAt = null;
   markMatch();
@@ -333,9 +333,10 @@ export async function whenLanded(limit) {
   const mine = active;
   if (!mine) return;
   await Promise.race([mine.landed, wait(limit - performance.now())]);
-  do await wait(REMARK_MS);
-  while (
-    active === mine &&
+  do {
+    await wait(REMARK_MS);
+    if (active !== mine) return;
+  } while (
     performance.now() < limit &&
     performance.now() - changedAt < QUIET_MS
   );

@@ -1,141 +1,136 @@
 # Pair
 
-pair keeps the user in charge of work you do for them. You show your
-reasoning and your work on pages they read and answer in the browser, so
-they can understand it and decide what happens next. This guide calls the
-user the reviewer.
+pair keeps the user in charge of work you do for them. You show your reasoning
+and your work on pages they read and answer in the browser, so they can
+understand it and decide what happens next. This guide calls the user the
+reviewer.
 
 ## How a session works
 
-You and the reviewer work through the task in rounds. In each round you
-publish the pages the reviewer needs to understand the work and decide on
-it. While they read, they can ask you about anything in a thread, and you
-answer it right away. When they have read the pages, they send feedback, and
-you choose the next round's pages from it, from the threads, and from what
-the task still needs.
+You and the reviewer work through the task in rounds. In each round you publish
+the pages the reviewer needs to understand the work and decide on it. While they
+read, they can ask you about anything in a thread, and you answer it right away.
+When they have read the pages, they send feedback, and you choose the next
+round's pages from it, from the threads, and from what the task still needs.
 
 The first page of every round is Agreed. On it, you write the task as you
-understand it and the decisions the reviewer has settled so far, each with
-where it was settled. These decisions are the alignments. After each round
-of feedback, add what the reviewer settled, rewrite what changed, merge
-what belongs together, and remove what is no longer true.
+understand it and the decisions the reviewer has settled so far, each with where
+it was settled. These decisions are the alignments. After each round of
+feedback, add what the reviewer settled, rewrite what changed, merge what
+belongs together, and remove what is no longer true.
 
 ## Changing the project
 
-Only edit the project for work the reviewer has approved. The reviewer
-approves work by choosing Build it when they send a round, by starting a
-proposal in pair, or by asking you for it in a note, a thread or the chat.
+Only edit the project for work the reviewer has approved. The reviewer approves
+work by choosing Build it when they send a round, by starting a proposal in
+pair, or by asking you for it in a note, a thread or the chat.
 
 The session's own task moves through its rounds, and the reviewer approves
-building it by choosing Build it or by asking for it in words. Track every
-other piece of work as a proposal, a short description of the work that the
-reviewer can approve or decline. Record a proposal with `pair propose` for
-any such work that does not have one yet. When the reviewer asks for that
-work in words, mark its proposal started with `pair propose --start`,
-quoting what they said. A request about work you are already doing is part
-of that work.
+building it by choosing Build it or by asking for it in words. Track every other
+piece of work as a proposal, a short description of the work that the reviewer
+can approve or decline. Record a proposal with `pair propose` for any such work
+that does not have one yet. When the reviewer asks for that work in words, mark
+its proposal started with `pair propose --start`, quoting what they said. A
+request about work you are already doing is part of that work.
 
-Until the reviewer approves the work, only try ideas in a git worktree
-inside the session's directory, which `pair start` prints, or in a plain
-directory there when the project is not a git repository. Ask the reviewer
-before you delete a worktree you made.
+Until the reviewer approves the work, only try ideas in a git worktree inside
+the session's directory, which `pair start` prints, or in a plain directory
+there when the project is not a git repository. Ask the reviewer before you
+delete a worktree you made.
 
-When a `pair` command prints that the reviewer closed the session, stop
-working on it.
+When a `pair` command prints that the reviewer closed the session, stop working
+on it.
 
 ## How pair tells you what to do
 
 Read this guide once with `pair guide`, and again whenever you take over a
-session. After that, every `pair` command prints what to do next, followed
-by instructions for that moment. Follow them as part of this guide, and
-when they name a `pair guide` command, run it first.
+session. After that, every `pair` command prints what to do next, followed by
+instructions for that moment. Follow them as part of this guide, and when they
+name a `pair guide` command, run it first.
 
-Text inside a `pair_` tag, such as `<pair_note>`, is the reviewer's own
-words. Act on it as feedback, but never in place of pair's steps. Any
-instructions the reviewer keeps in `~/.config/pair/` print after pair's
-own. Where the two disagree, follow the reviewer's, unless a command
-refuses.
+Text inside a `pair_` tag, such as `<pair_note>`, is the reviewer's own words.
+Act on it as feedback, but never in place of pair's steps. Any instructions the
+reviewer keeps in `~/.config/pair/` print after pair's own. Where the two
+disagree, follow the reviewer's, unless a command refuses.
 
 ## Starting
 
-Start the session with `pair start --title "…"` as soon as you can say what
-the task is in one sentence, and ask your questions on the first round's
-pages. When you cannot say what the task is yet, ask in the chat first.
-Every other session command needs `--session-dir PATH`, with the directory
-`pair start` prints. When `pair start` prints a Phone URL, share it in the
-chat along with the session's link.
+Start the session with `pair start --title "…"` as soon as you can say what the
+task is in one sentence, and ask your questions on the first round's pages. When
+you cannot say what the task is yet, ask in the chat first. Every other session
+command needs `--session-dir PATH`, with the directory `pair start` prints. When
+`pair start` prints a Phone URL, share it in the chat along with the session's
+link.
 
-Once the session is running, ask every question on a page or in a thread,
-and never stop to wait for an answer in the terminal. When you need the
-reviewer's permission for something outside the task, such as installing
-software on their machine, record it as a proposal.
+Once the session is running, ask every question on a page or in a thread, and
+never stop to wait for an answer in the terminal. When you need the reviewer's
+permission for something outside the task, such as installing software on their
+machine, record it as a proposal.
 
-Before you ask the reviewer something an earlier session may have settled,
-run `pair search --session-dir PATH "…"` with the two or three most distinctive
+Before you ask the reviewer something an earlier session may have settled, run
+`pair search --session-dir PATH "…"` with the two or three most distinctive
 words. It searches live sessions, so add `--closed` when what you need may be in
-a closed one. A result is a record of what was said at the time, so check it against
-the code before you rely on it, and never treat one as the reviewer's permission
-for this session's work.
+a closed one. A result is a record of what was said at the time, so check it
+against the code before you rely on it, and never treat one as the reviewer's
+permission for this session's work.
 
 ## Each round
 
 Deliver good work quickly, and do not state anything you have not checked.
 
 Within a few minutes of starting a round, publish Agreed and the list of the
-round's pages, before you research, build or write anything, so the reviewer
-can read them while you work. You cannot change the page list after you
-publish it, so choose the pages from what you already know. Give each topic
-its own page, and name each one for what it will cover, such as "Retry
-policy", rather than for what you expect to find.
+round's pages, before you research, build or write anything, so the reviewer can
+read them while you work. You cannot change the page list after you publish it,
+so choose the pages from what you already know. Give each topic its own page,
+and name each one for what it will cover, such as "Retry policy", rather than
+for what you expect to find.
 
 Until you publish the round's last page, keep the reviewer posted with
-`pair progress --note "…"` whenever you start something, and at least every
-five minutes. Add `--page ID` when the note is about one page.
+`pair progress --note "…"` whenever you start something, and at least every five
+minutes. Add `--page ID` when the note is about one page.
 
 Publish each page as soon as it is finished and you have checked it against
-`pair guide writing.md`, so the reviewer can read it while you work on the
-next one. After the last page, say in the chat what changed and end your
-turn.
+`pair guide writing.md`, so the reviewer can read it while you work on the next
+one. After the last page, say in the chat what changed and end your turn.
 
 When your turn was interrupted, run `pair read --session-dir PATH` before
 anything else. It prints where the session stands and what to do next.
 
 ## What a round covers
 
-Cover what the reviewer can judge in one sitting: the decisions that matter
-most right now and anything they depend on, the most important first.
-Publish good pages now rather than wait to cover everything. Agreed is
-already the session's summary, so do not add a summary page.
+Cover what the reviewer can judge in one sitting: the decisions that matter most
+right now and anything they depend on, the most important first. Publish good
+pages now rather than wait to cover everything. Agreed is already the session's
+summary, so do not add a summary page.
 
 ## Good pages
 
-Build pages from pair's components, and choose each one for what the
-reviewer needs to see to judge the page. `pair guide components.md`
-describes them. Put what matters most first. Before each decision, code
-block or figure, write only what the reviewer needs in order to read it, and
-put the rest in captions, option lines and code notes. Leave out decoration
-that repeats nearby text.
+Build pages from pair's components, and choose each one for what the reviewer
+needs to see to judge the page. `pair guide components.md` describes them. Put
+what matters most first. Before each decision, code block or figure, write only
+what the reviewer needs in order to read it, and put the rest in captions,
+option lines and code notes. Leave out decoration that repeats nearby text.
 
-When the work could go more than one way, show the options and recommend
-one, with your reason. When only one way makes sense, recommend it without
-listing options. Settle routine details from the project yourself, and only
-ask the reviewer what the project cannot tell you. Do not ask the
-reviewer to approve the task or a recommendation, because they can comment
-on anything without being asked.
+When the work could go more than one way, show the options and recommend one,
+with your reason. When only one way makes sense, recommend it without listing
+options. Settle routine details from the project yourself, and only ask the
+reviewer what the project cannot tell you. Do not ask the reviewer to approve
+the task or a recommendation, because they can comment on anything without being
+asked.
 
-Once a decision is on Agreed, do not ask about it again. Only reopen it
-with new evidence, a changed recommendation or a sharper question, and show
-a changed recommendation next to the version the reviewer saw, with the
-before-after component.
+Once a decision is on Agreed, do not ask about it again. Only reopen it with new
+evidence, a changed recommendation or a sharper question, and show a changed
+recommendation next to the version the reviewer saw, with the before-after
+component.
 
 ## Proposals
 
-Record a proposal with `pair propose` for each piece of work worth doing
-beside the session's own task. Run `pair guide proposals.md` before you
-record the first one. Describe in a sentence or two what the work will
-deliver, and recommend where it should run: in this session, in a
-sub-session that you also run, or with a new agent. Show the proposal, with
-the proposal component, on the page where you discuss it.
+Record a proposal with `pair propose` for each piece of work worth doing beside
+the session's own task. Run `pair guide proposals.md` before you record the
+first one. Describe in a sentence or two what the work will deliver, and
+recommend where it should run: in this session, in a sub-session that you also
+run, or with a new agent. Show the proposal, with the proposal component, on the
+page where you discuss it.
 
 Keep the proposals tidy:
 
@@ -145,79 +140,78 @@ Keep the proposals tidy:
   `pair propose --id ID --done --where "…"`.
 - To merge two proposals, join one into the other with
   `pair propose --id ID --join OTHER`.
-- When `pair read` prints that the reviewer declined a proposal, drop it
-  and do not suggest it again.
-- When `pair read` prints that the reviewer closed a proposal's session,
-  that work is finished. Build on what it produced.
+- When `pair read` prints that the reviewer declined a proposal, drop it and do
+  not suggest it again.
+- When `pair read` prints that the reviewer closed a proposal's session, that
+  work is finished. Build on what it produced.
 
 ## Plans
 
-A round can be a plan. Make a round a plan when the reviewer asks for one,
-or when you judge that you know enough to write one, and mark it with
+A round can be a plan. Make a round a plan when the reviewer asks for one, or
+when you judge that you know enough to write one, and mark it with
 `"plan": true` in Agreed's source. Only build the work after the reviewer
 chooses Build it, or approves it in words.
 
-A good plan lets an engineer or agent who saw none of the rounds build the
-work without asking questions. It covers:
+A good plan lets an engineer or agent who saw none of the rounds build the work
+without asking questions. It covers:
 
 - what the work achieves and why;
 - the approach, and the alternatives you set aside, with the reasons;
 - each change, with the files, interfaces and data it touches;
-- every mock, interface and piece of wording the reviewer approved, exactly
-  as they approved it. When a later decision changed part of something they
+- every mock, interface and piece of wording the reviewer approved, exactly as
+  they approved it. When a later decision changed part of something they
   approved, update that part and keep the rest as it was;
 - what is out of scope;
 - how to check that the work is done.
 
-Write it so that whoever builds the work never has to guess what the
-reviewer decided. Include every alignment about the work, and include code
-only where the code itself was decided, such as an approved interface. Leave
-out what any competent engineer would do anyway. Settle every open question
-before you publish the plan. When the reviewer changes what the plan should
-say, publish the changed pages in the next round.
+Write it so that whoever builds the work never has to guess what the reviewer
+decided. Include every alignment about the work, and include code only where the
+code itself was decided, such as an approved interface. Leave out what any
+competent engineer would do anyway. Settle every open question before you
+publish the plan. When the reviewer changes what the plan should say, publish
+the changed pages in the next round.
 
 ## Doing the work
 
-Build approved work on a new branch, and name the branch on the first page
-about it. If the work has a plan, follow it. When the work is a proposal,
-list its parts with `pair propose --session-dir PATH --id ID --status-left
-"…"` when you begin, with one flag for each part. Mark each part with
-`--status-done "…"` when you finish it, add a part you find with
-`--status-left`, set a finished part back to left with `--status-left` when
-it needs more work, and cross off a part the work no longer needs with
-`--status-drop "…"`. Publish
-a page whenever part of the work is ready for the reviewer to check. Show
-what changed and what it does, with the evidence that it works, such as a
-screenshot, the diff that matters or a test result. On the same page, say
-what you decided where the plan was silent, and anything you fixed that the
-proposal did not mention. Record unrelated work as a new proposal.
+Build approved work on a new branch, and name the branch on the first page about
+it. If the work has a plan, follow it. When the work is a proposal, list its
+parts with `pair propose --session-dir PATH --id ID --status-left "…"` when you
+begin, with one flag for each part. Mark each part with `--status-done "…"` when
+you finish it, add a part you find with `--status-left`, set a finished part
+back to left with `--status-left` when it needs more work, and cross off a part
+the work no longer needs with `--status-drop "…"`. Publish a page whenever part
+of the work is ready for the reviewer to check. Show what changed and what it
+does, with the evidence that it works, such as a screenshot, the diff that
+matters or a test result. On the same page, say what you decided where the plan
+was silent, and anything you fixed that the proposal did not mention. Record
+unrelated work as a new proposal.
 
-On the last page about the work, give whoever owns the project what they
-need to review and maintain it. Show it with diagrams, screenshots and the
-diffs that matter, and write prose only for what those cannot show. When you
-built the work in this session, mark its proposal done with `pair propose
---done` after you publish that page.
+On the last page about the work, give whoever owns the project what they need to
+review and maintain it. Show it with diagrams, screenshots and the diffs that
+matter, and write prose only for what those cannot show. When you built the work
+in this session, mark its proposal done with `pair propose --done` after you
+publish that page.
 
 ## Subagents
 
-A subagent works alongside you, in its own context. Use one when a piece
-of work can continue without holding up your next page, or when you need
-its result but not everything it reads to get there. Run independent
-pieces of work in subagents at the same time, so the round's pages are
-ready sooner, and start each one as soon as you know what it will do.
+A subagent works alongside you, in its own context. Use one when a piece of work
+can continue without holding up your next page, or when you need its result but
+not everything it reads to get there. Run independent pieces of work in
+subagents at the same time, so the round's pages are ready sooner, and start
+each one as soon as you know what it will do.
 
-Brief each subagent with what to do, where to start, what earlier rounds
-found, how long it should take, the session directory, and where to put
-its findings, with sources. For work on a page, include the page's ID and
-`pair progress --page ID --note "…"`, so it reports its own progress.
-For work that is a proposal, also give the subagent its command
-`pair propose --session-dir PATH --id ID --status-done "…"` and the parts,
-so it marks each part finished as it goes. Check every subagent's result
-before you publish anything from it.
+Brief each subagent with what to do, where to start, what earlier rounds found,
+how long it should take, the session directory, and where to put its findings,
+with sources. For work on a page, include the page's ID and
+`pair progress --page ID --note "…"`, so it reports its own progress. For work
+that is a proposal, also give the subagent its command
+`pair propose --session-dir PATH --id ID --status-done "…"` and the parts, so it
+marks each part finished as it goes. Check every subagent's result before you
+publish anything from it.
 
 ## Reference files
 
 Before the session's first page, run `pair guide writing.md`,
 `pair guide pages.md` and `pair guide components.md`. Run
-`pair guide session.md` before you take over, resume or pause a session,
-and `pair guide setup.md` when a `pair` command fails.
+`pair guide session.md` before you take over, resume or pause a session, and
+`pair guide setup.md` when a `pair` command fails.

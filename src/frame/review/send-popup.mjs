@@ -80,7 +80,7 @@ function choiceRow({ next: value, label, hint }) {
   line.textContent = hint;
   text.append(name, line);
   row.append(tick, text);
-  row.onclick = () => select(value);
+  row.addEventListener("click", () => select(value));
   return row;
 }
 function select(value) {
@@ -106,11 +106,11 @@ function showNotAdded() {
       const link = document.createElement("a");
       link.href = `?target=${encodeURIComponent(target)}#${encodeURIComponent(topic)}`;
       link.textContent = label;
-      link.onclick = (event) => {
+      link.addEventListener("click", (event) => {
         event.preventDefault();
         $("send-dialog").close();
         show(topic, target);
-      };
+      });
       item.append(link);
       return item;
     }),
@@ -142,22 +142,24 @@ function send() {
   void sendFeedback(next);
 }
 export function installSendPopup() {
-  arrowKeys($("send-choices"), rows, chosenRow, (row) =>
-    select(row.dataset.next),
-  );
+  arrowKeys($("send-choices"), {
+    rows,
+    chosen: chosenRow,
+    choose: (row) => select(row.dataset.next),
+  });
   // The switch and the message are part of the draft, so persist() keeps
   // them until the round is sent, as it keeps the comments.
-  $("align-unflagged").onchange = (event) => {
+  $("align-unflagged").addEventListener("change", (event) => {
     state.alignUnflagged = event.target.checked;
     persist();
     refreshSend();
-  };
-  $("send-message").oninput = (event) => {
+  });
+  $("send-message").addEventListener("input", (event) => {
     state.message = event.target.value;
     persist();
     refreshSend();
-  };
-  $("send-button").onclick = send;
+  });
+  $("send-button").addEventListener("click", send);
   $("send-dialog").addEventListener("keydown", (event) => {
     if (!shiftEnter(event)) return;
     event.preventDefault();

@@ -9,18 +9,29 @@ import { hub, planData, sleep } from "../support/hub.mjs";
 // sees what the first paint shows.
 function recordFirstFrame() {
   requestAnimationFrame(() => {
-    const shown = (id) => {
+    const read = {};
+    for (const [key, id] of [
+      ["header", "frame-header"],
+      ["sessions", "sessions-count"],
+      ["bell", "bell-count"],
+      ["pages", "navigation"],
+      ["title", "page-title"],
+      ["content", "page-content"],
+    ]) {
       const element = document.getElementById(id);
-      return element && { text: element.innerText, hidden: element.hidden };
-    };
+      read[key] = element && {
+        text: element.innerText,
+        hidden: element.hidden,
+      };
+    }
     window.firstFrame = JSON.stringify({
-      header: shown("frame-header"),
+      header: read.header,
       submit: document.getElementById("submit")?.disabled,
-      sessions: shown("sessions-count"),
-      bell: shown("bell-count"),
-      pages: shown("navigation"),
-      title: shown("page-title"),
-      content: shown("page-content"),
+      sessions: read.sessions,
+      bell: read.bell,
+      pages: read.pages,
+      title: read.title,
+      content: read.content,
     });
   });
 }

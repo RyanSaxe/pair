@@ -1,3 +1,19 @@
 node_modules/
 # npm run screenshots saves the browser windows of a failed run here.
 screenshots-failure/
+
+# >>> Managed by BYOR. Manual edits may be overwritten. >>>
+.byor/local.yml
+.byor/rules/personal/local/**/*.yml
+.byor/rules/personal/local/**/*.yaml
+.byor/rules/personal/global/**/*.yml
+.byor/rules/personal/global/**/*.yaml
+.byor/rules/personal/packages/**/*.yml
+.byor/rules/personal/packages/**/*.yaml
+.byor/commands/personal/local/**/*.yml
+.byor/commands/personal/local/**/*.yaml
+.byor/commands/personal/global/**/*.yml
+.byor/commands/personal/global/**/*.yaml
+.byor/commands/personal/packages/**/*.yml
+.byor/commands/personal/packages/**/*.yaml
+# <<< Managed by BYOR <<<

@@ -66,11 +66,11 @@ function drawRow(slot, stopped, key) {
     note.hidden = !open;
   };
   show(opened.has(key));
-  row.onclick = () => {
+  row.addEventListener("click", () => {
     if (opened.has(key)) opened.delete(key);
     else opened.add(key);
     show(opened.has(key));
-  };
+  });
   drawn.set(key, { row, label, note });
   return [row, note];
 }
@@ -251,7 +251,7 @@ async function copyReopen() {
   line.hidden = copied;
   renderHistory();
 }
-function drawHistoryLabel(label, old, past, parent, unreachable) {
+function drawHistoryLabel(label, { old, past, parent, unreachable }) {
   if (unreachable)
     return label.replaceChildren(
       "The hub is unreachable. Your draft is saved in this browser.",
@@ -292,6 +292,8 @@ function drawHistoryLabel(label, old, past, parent, unreachable) {
   here.textContent = parent[1];
   label.replaceChildren(...crumbTrail([parent[0], here]));
 }
+const wiredHistoryButtons = new WeakSet();
+let historyReturnAction = null;
 // A tab click leaves the page on screen, so renderHistory shows the strip
 // whenever the page on screen belongs to the earlier round, whichever tab
 // is selected. A held picture is the page on screen until the move arrives.
@@ -325,18 +327,25 @@ export function renderHistory() {
   ]);
   if (label.dataset.key !== key) {
     label.dataset.key = key;
-    drawHistoryLabel(label, old, past, parent, unreachable);
+    drawHistoryLabel(label, { old, past, parent, unreachable });
   }
   const reopen = $("history-reopen");
   reopen.hidden = !session.closed || !remote?.sessionDir;
   reopen.textContent = copyResult || "Reopen";
-  reopen.onclick = copyReopen;
+  if (!wiredHistoryButtons.has(reopen)) {
+    wiredHistoryButtons.add(reopen);
+    reopen.addEventListener("click", copyReopen);
+  }
   const button = $("history-return");
   button.hidden = old ? session.closed : !past || !currentShown();
   button.textContent = "Back to current";
-  button.onclick = old
+  historyReturnAction = old
     ? () => location.assign(`${base}/`)
     : () => switchTab("current");
+  if (!wiredHistoryButtons.has(button)) {
+    wiredHistoryButtons.add(button);
+    button.addEventListener("click", () => historyReturnAction?.());
+  }
 }
 // renderRound sets the text only while a round runs, so the last text stays
 // visible while the idle status fades out.

@@ -51,7 +51,7 @@ export function applyChanges(draft, changes) {
    initializeChecklists() rebuilds a checklist with the current round, and a
    draft saved by an older frame has another ID as a checklist's target, so
    applySubmission compares items without their target and round. */
-const content = ({ target, round, ...rest }) => rest;
+const content = ({ target: _target, round: _round, ...rest }) => rest;
 export function applySubmission(draft, payload) {
   const removed = {};
   for (const [key, sent] of sentItems(payload)) {

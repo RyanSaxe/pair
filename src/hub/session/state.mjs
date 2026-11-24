@@ -39,11 +39,13 @@ import { uploads } from "./uploads.mjs";
 export async function loadSession(
   directory,
   config,
-  origin,
-  tabOpen,
-  peer = () => null,
-  changed = () => {},
-  markSeen = () => {},
+  {
+    origin,
+    tabOpen,
+    peer = () => null,
+    changed = () => {},
+    markSeen = () => {},
+  } = {},
 ) {
   await fs.mkdir(directory, { recursive: true, mode: 0o700 });
   const stateFile = path.join(directory, "status.json");
@@ -148,7 +150,7 @@ export async function loadSession(
   async function pending() {
     return events
       .filter((event) => !state.acknowledged.includes(event.id))
-      .sort((a, b) => a.sequence - b.sequence);
+      .toSorted((a, b) => a.sequence - b.sequence);
   }
   // stage counts only unread feedback, because a Start answers no round.
   const stage = (value = state) =>
@@ -242,7 +244,12 @@ export async function loadSession(
     setTimeout(() => exclusive(wake), 0);
   }
   function view() {
-    const { roundPages, holder, formerHolders, ...visible } = state;
+    const {
+      roundPages: _roundPages,
+      holder,
+      formerHolders: _formerHolders,
+      ...visible
+    } = state;
     return {
       ...visible,
       // The holder's identity is a socket path or a thread ID, so view
@@ -268,10 +275,16 @@ export async function loadSession(
                 ? { agreedAt: state.openRound.agreedAt }
                 : {}),
               pages: state.openRound.pages.map(
-                ({ id, title, state, startedAt, note }) => ({
+                ({
                   id,
-                  title,
-                  state,
+                  title: pageTitle,
+                  state: pageState,
+                  startedAt,
+                  note,
+                }) => ({
+                  id,
+                  title: pageTitle,
+                  state: pageState,
                   ...(startedAt ? { startedAt } : {}),
                   ...(note ? { note } : {}),
                 }),
@@ -316,7 +329,7 @@ export async function loadSession(
             (item) =>
               answersRound(item) && item.payload.round === requestedRound,
           )
-          .sort((a, b) => b.sequence - a.sequence)[0]
+          .toSorted((a, b) => b.sequence - a.sequence)[0]
       : state.latestSubmissionId && idPattern.test(state.latestSubmissionId)
         ? await read(
             path.join(
@@ -344,7 +357,9 @@ export async function loadSession(
             target,
             quote,
             text,
-            attachments: (attachments || []).map(({ id }) => ({ id })),
+            attachments: (attachments || []).map(({ id: imageId }) => ({
+              id: imageId,
+            })),
           }),
         ),
         choices: groups.choices || {},

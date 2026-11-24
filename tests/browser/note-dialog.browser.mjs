@@ -37,12 +37,14 @@ async function session(t) {
     // hubNotes waits for the frame's next push and returns the notes once the
     // hub's copy has exactly these texts.
     hubNotes: async (...texts) => {
-      const held = async () => (await notes()).map((note) => note.text).sort();
+      const held = async () =>
+        (await notes()).map((note) => note.text).toSorted();
+      const sorted = texts.toSorted();
       await waitUntil(
-        async () => isDeepStrictEqual(await held(), texts.sort()),
+        async () => isDeepStrictEqual(await held(), sorted),
         8000,
       );
-      assert.deepEqual(await held(), texts.sort());
+      assert.deepEqual(await held(), sorted);
       return notes();
     },
     onHub: async (image) =>

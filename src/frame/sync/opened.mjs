@@ -16,9 +16,9 @@ const listedKeys = (entry) =>
     pageKey(entry.id, entry.readyPages.round, id),
   );
 
-export function countUnopened(entry, opened) {
-  if (!opened) return 0;
-  return listedKeys(entry).filter((key) => !opened.has(key)).length;
+export function countUnopened(entry, openedSet) {
+  if (!openedSet) return 0;
+  return listedKeys(entry).filter((key) => !openedSet.has(key)).length;
 }
 // When neither this browser nor the hub has a list, adoptOpened counts every
 // listed page as opened, so the first run after the upgrade shows no New
@@ -27,12 +27,12 @@ export const adoptOpened = (sessions) => new Set(sessions.flatMap(listedKeys));
 // settle runs after each session list from the hub. It drops the pages of
 // sessions that the hub no longer lists and of rounds that a session has
 // moved past.
-export function settle(sessions, opened) {
+export function settle(sessions, openedSet) {
   const rounds = new Map(
     sessions.map((entry) => [entry.id, entry.readyPages?.round]),
   );
   return new Set(
-    [...opened].filter((key) => {
+    [...openedSet].filter((key) => {
       const [sessionId, round] = key.split("/");
       return rounds.get(sessionId) === round;
     }),

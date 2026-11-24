@@ -1,33 +1,30 @@
-Open the file at the `path` of every `<pair_image>` in the thread, and read
-its `scene` when it has one.
+Open the file at the `path` of every `<pair_image>` in the thread, and read its
+`scene` when it has one.
 
 Answer every message the reviewer sends in a thread. When a message asks for
 nothing and you have nothing to add, acknowledge it with
 `pair reply --session-dir PATH --thread ID --ack` instead of writing a reply.
 
-Answer the question the reviewer asked in a few sentences, and leave out
-the background, alternatives and tables they did not ask for. Explain in
-plain words each term that the reviewer has not used and that no page or
-earlier reply has explained. Check the reply against
-`pair guide writing.md` before you post it.
+Answer the question the reviewer asked in a few sentences, and leave out the
+background, alternatives and tables they did not ask for. Explain in plain words
+each term that the reviewer has not used and that no page or earlier reply has
+explained. Check the reply against `pair guide writing.md` before you post it.
 
-Answer in the thread with text, or with an HTML fragment written like a
-page, which can use any component except a decision, a checklist or a
-question. The reviewer's answers to those go back to you only with a round's
-feedback, so an answer given in a thread would never reach you. If the
-answer needs more than a few blocks, or the reviewer asks for a decision,
-say what you will show and put it on a page in the next round. If the
-reviewer asks for a change to the work you are doing now, say what you will
-change and change it. When the reviewer settles a decision in the thread,
-cite the thread in the alignment's `sourceRefs` on the next Agreed, as `{
-"kind": "thread", "threadId": "ID" }`.
+Answer in the thread with text, or with an HTML fragment written like a page,
+which can use any component except a decision, a checklist or a question. The
+reviewer's answers to those go back to you only with a round's feedback, so an
+answer given in a thread would never reach you. If the answer needs more than a
+few blocks, or the reviewer asks for a decision, say what you will show and put
+it on a page in the next round. If the reviewer asks for a change to the work
+you are doing now, say what you will change and change it. When the reviewer
+settles a decision in the thread, cite the thread in the alignment's
+`sourceRefs` on the next Agreed, as `{ "kind": "thread", "threadId": "ID" }`.
 
-When the reviewer asks you in the thread for other work, record a proposal
-for it unless one already covers it. Before you build the work, mark that
-proposal started with
-`pair propose --session-dir PATH --id ID --start WHERE --quote "…"`,
-quoting their message, and add `--thread` with this thread's ID.
+When the reviewer asks you in the thread for other work, record a proposal for
+it unless one already covers it. Before you build the work, mark that proposal
+started with
+`pair propose --session-dir PATH --id ID --start WHERE --quote "…"`, quoting
+their message, and add `--thread` with this thread's ID.
 
-`agreed="yes"` on one of your messages means the reviewer agreed with it.
-Treat what you said there as settled in this thread, and do not reply to
-it.
+`agreed="yes"` on one of your messages means the reviewer agreed with it. Treat
+what you said there as settled in this thread, and do not reply to it.

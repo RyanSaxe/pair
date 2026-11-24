@@ -6,6 +6,7 @@ import { hub, planData } from "../support/hub.mjs";
 const sentence =
   "The export pipeline runs as eleven nightly cron jobs on two hosts, and each job writes its own lock file, so a slow run on one host can overlap the next night's run on the other and write the same CSV twice. ";
 const clip = (text, length) => text.repeat(4).slice(0, length);
+const near = (a, b) => Math.abs(a - b) < 0.5;
 
 // The test fills each dialog with text taller than a 375 by 667 window, so the
 // body must scroll inside the dialog while its title and buttons stay in view.
@@ -42,7 +43,6 @@ test("every dialog keeps one margin from each edge of a phone's window and its b
     const top = box.y;
     const right = 375 - box.x - box.width;
     const bottom = 667 - box.y - box.height;
-    const near = (a, b) => Math.abs(a - b) < 0.5;
     assert.ok(near(box.x, margin), `${id} left ${box.x}`);
     assert.ok(near(right, margin), `${id} right ${right}`);
     assert.ok(near(top, bottom), `${id} top ${top}, bottom ${bottom}`);
@@ -145,7 +145,6 @@ test("each top bar panel opens under its button inside the window, one at a time
       await page.locator(`#${button}[aria-expanded="true"]`).waitFor();
       const anchor = await page.locator(`#${button}`).boundingBox();
       const box = await page.locator(`#${panel}`).boundingBox();
-      const near = (a, b) => Math.abs(a - b) < 0.5;
       assert.ok(near(box.y, anchor.y + anchor.height + 6), `${at} top`);
       assert.ok(box.x >= 7.5, `${at} left ${box.x}`);
       assert.ok(
@@ -210,10 +209,10 @@ test("every dialog closes on its ×, on Escape and on a tap outside, and stays o
 
   const isOpen = (id) =>
     page.locator(`#${id}`).evaluate((dialog) => dialog.open);
-  async function backOut(id, open, press = `#${id} h2`) {
+  async function backOut(id, openDialog, press = `#${id} h2`) {
     const dialog = page.locator(`#${id}`);
     const shut = () => dialog.waitFor({ state: "hidden" });
-    await open();
+    await openDialog();
     await dialog.waitFor();
     const from = await page.locator(press).boundingBox();
     await page.mouse.move(from.x + 4, from.y + from.height / 2);
@@ -224,12 +223,12 @@ test("every dialog closes on its ×, on Escape and on a tap outside, and stays o
     await page.touchscreen.tap(5, 5);
     await shut();
 
-    await open();
+    await openDialog();
     await dialog.waitFor();
     await page.keyboard.press("Escape");
     await shut();
 
-    await open();
+    await openDialog();
     await dialog.waitFor();
     await dialog.locator("[data-close]").click();
     await shut();

@@ -84,13 +84,18 @@ export function unsentItems(draft) {
   };
 }
 
+const countWords = (number, word) =>
+  number ? `${number} ${word}${number === 1 ? "" : "s"}` : "";
+const stripSentIn = ({ sentIn: _sentIn, ...item }) => item;
+const itemsDiffer = (a, b) => JSON.stringify(a) !== JSON.stringify(b);
+const notesById = (draft) =>
+  new Map(draft.notes.map((note) => [note.id, note]));
+
 export function draftedWords(draft) {
   const { notes, choices, answers } = unsentItems(draft);
-  const count = (number, word) =>
-    number ? `${number} ${word}${number === 1 ? "" : "s"}` : "";
   return [
-    count(notes.length + Object.keys(answers).length, "comment"),
-    count(Object.keys(choices).length, "choice"),
+    countWords(notes.length + Object.keys(answers).length, "comment"),
+    countWords(Object.keys(choices).length, "choice"),
   ]
     .filter(Boolean)
     .join(" and ");
@@ -99,13 +104,12 @@ export function draftedWords(draft) {
 export function submissionGroups(draft) {
   const { notes, answers } = unsentItems(draft);
   const choices = filterValues(draft.choices, (choice) => !choice.sentIn);
-  const strip = ({ sentIn, ...item }) => item;
   return {
     alignUnflagged: draft.alignUnflagged,
-    choices: mapValues(choices, strip),
-    notes: notes.map(strip),
+    choices: mapValues(choices, stripSentIn),
+    notes: notes.map(stripSentIn),
     ...(Object.keys(answers).length
-      ? { answers: mapValues(answers, strip) }
+      ? { answers: mapValues(answers, stripSentIn) }
       : {}),
   };
 }
@@ -114,18 +118,16 @@ export function submissionGroups(draft) {
 // typed answers differ between two drafts.
 export function changedPages(before, after) {
   const pages = new Set();
-  const differ = (a, b) => JSON.stringify(a) !== JSON.stringify(b);
-  const notes = (draft) => new Map(draft.notes.map((note) => [note.id, note]));
-  const [old, next] = [notes(before), notes(after)];
+  const [old, next] = [notesById(before), notesById(after)];
   for (const id of new Set([...old.keys(), ...next.keys()]))
-    if (differ(old.get(id), next.get(id)))
+    if (itemsDiffer(old.get(id), next.get(id)))
       pages.add((old.get(id) ?? next.get(id)).topic);
   for (const field of ["choices", "answers", "drafts"])
     for (const key of new Set([
       ...Object.keys(before[field]),
       ...Object.keys(after[field]),
     ]))
-      if (differ(before[field][key], after[field][key]))
+      if (itemsDiffer(before[field][key], after[field][key]))
         pages.add(key.split("/")[0]);
   return pages;
 }

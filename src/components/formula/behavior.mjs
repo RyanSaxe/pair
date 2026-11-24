@@ -33,10 +33,10 @@ function termRow(term, index, show) {
     meaning.append(value);
   }
   row.append(symbol, meaning);
-  row.onpointerenter = () => show(row.dataset.term);
-  row.onfocus = () => show(row.dataset.term);
-  row.onpointerleave = () => show(null);
-  row.onblur = () => show(null);
+  row.addEventListener("pointerenter", () => show(row.dataset.term));
+  row.addEventListener("focus", () => show(row.dataset.term));
+  row.addEventListener("pointerleave", () => show(null));
+  row.addEventListener("blur", () => show(null));
   return row;
 }
 function nameTerms(element) {

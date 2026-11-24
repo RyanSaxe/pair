@@ -51,11 +51,12 @@ function selectionTarget(node, block, diffLine) {
   }
   return block.id;
 }
+const diagramNodeAt = (node) =>
+  node?.parentElement?.closest("[data-diagram] .pele-node");
+const readText = (node) => normalize(node?.textContent);
 function boxOf(selection) {
-  const at = (node) =>
-    node?.parentElement?.closest("[data-diagram] .pele-node");
-  const box = at(selection?.anchorNode);
-  const found = box === at(selection?.focusNode) && diagramBox(box);
+  const box = diagramNodeAt(selection?.anchorNode);
+  const found = box === diagramNodeAt(selection?.focusNode) && diagramBox(box);
   return found ? { ...found, diagram: box.closest("[data-diagram]") } : null;
 }
 function insideThread(node) {
@@ -109,7 +110,6 @@ function blockHeading(block) {
   return peers.length < 2 ? name : `${name} ${peers.indexOf(block) + 1}`;
 }
 function blockName(block) {
-  const read = (node) => normalize(node?.textContent);
   /* blockName never uses the block's own text, because that text includes a
      table's cells, a renderer's injected stylesheet and its buttons. */
   const named = "[data-title], [data-caption], [data-file]";
@@ -120,16 +120,16 @@ function blockName(block) {
     (node) => !node.closest("details"),
   );
   const name =
-    read(heading) ||
+    readText(heading) ||
     normalize(titled?.dataset.title) ||
     normalize(titled?.dataset.file) ||
-    read(block.querySelector(".figure-head b")) ||
+    readText(block.querySelector(".figure-head b")) ||
     normalize(titled?.dataset.caption) ||
-    read(block.querySelector(".figure-caption")) ||
+    readText(block.querySelector(".figure-caption")) ||
     /* The reviewer reads this name on Review and the agent reads it as
        text, and neither sees the block there. A block with no name of its
        own falls back to the heading above it, then to its kind. */
-    read(headingAbove(block)) ||
+    readText(headingAbove(block)) ||
     sentence(blockKind(block));
   return name.length > 60 ? name.slice(0, 57) + "…" : name;
 }
@@ -354,6 +354,19 @@ export function commentOn(element, fields) {
     ...fields,
   });
 }
+/* A drag leaves text selected, so chooseUnit returns and the drag stays a
+   selection. */
+function chooseUnit(event) {
+  if (!editable || (!$("reading").hidden && page.pending)) return;
+  if (
+    event.target.closest("button, a, input, label, select, textarea, summary")
+  )
+    return;
+  if (getSelection()?.toString().trim()) return;
+  const unit = unitAt(event.target);
+  if (unit && !opens(unit)) return;
+  chooseBlock(unit);
+}
 export function installBlocks() {
   document.addEventListener("selectionchange", () => {
     const selection = getSelection();
@@ -373,25 +386,14 @@ export function installBlocks() {
     );
     commentTarget();
   });
-  /* A drag leaves text selected, so choose returns and the drag stays a
-     selection. */
-  const choose = (event) => {
-    if (!editable || (!$("reading").hidden && page.pending)) return;
-    if (
-      event.target.closest("button, a, input, label, select, textarea, summary")
-    )
-      return;
-    if (getSelection()?.toString().trim()) return;
-    const unit = unitAt(event.target);
-    if (unit && !opens(unit)) return;
-    chooseBlock(unit);
-  };
-  $("page-content").addEventListener("click", choose);
-  $("work-cards").addEventListener("click", choose);
+  $("page-content").addEventListener("click", chooseUnit);
+  $("work-cards").addEventListener("click", chooseUnit);
   // Without preventDefault, a press on the button clears the selection that
   // the button comments on.
-  $("comment-here").onpointerdown = (event) => event.preventDefault();
-  $("comment-here").onclick = () => commentOnTarget();
+  $("comment-here").addEventListener("pointerdown", (event) =>
+    event.preventDefault(),
+  );
+  $("comment-here").addEventListener("click", () => commentOnTarget());
   /* Once the frame is at its widest, a wider window moves the page's edge
      without changing the page's size, so placeMarks does not run and the
      button needs its own resize listener. A drag of the page's edge changes
@@ -399,9 +401,9 @@ export function installBlocks() {
      the button, so the button also follows the column. */
   addEventListener("resize", placeButton);
   new ResizeObserver(placeButton).observe($("content"));
-  $("note-text").oninput = () => {
+  $("note-text").addEventListener("input", () => {
     (state.noteDrafts ||= {})[noteDraftKey] = $("note-text").value;
     persist();
     commentTarget();
-  };
+  });
 }

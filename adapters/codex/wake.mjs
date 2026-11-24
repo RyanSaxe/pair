@@ -92,7 +92,9 @@ export async function parentSession(target) {
 // /root/echo, which the parent's tools show as the subagent's agent ID.
 // subagentTool finds the subagent among the threads the parent spawned, by
 // either name, and names its agent path, or its thread ID when it has none.
-export async function subagentTool({ thread, socket }, name) {
+const agentPath = (child) => child.source?.subAgent?.thread_spawn?.agent_path;
+
+export async function subagentTool({ thread, socket }, targetName) {
   const daemon = await openDaemon(socket);
   const spawned = [];
   try {
@@ -108,11 +110,12 @@ export async function subagentTool({ thread, socket }, name) {
   } finally {
     daemon.close();
   }
-  const agentPath = (child) => child.source?.subAgent?.thread_spawn?.agent_path;
   const names = (child) =>
     [agentPath(child)?.split("/").at(-1), child.agentNickname].filter(Boolean);
   const subagent = spawned.find((child) =>
-    names(child).some((each) => each.toLowerCase() === name.toLowerCase()),
+    names(child).some(
+      (each) => each.toLowerCase() === targetName.toLowerCase(),
+    ),
   );
   if (subagent)
     return `followup_task and target ${agentPath(subagent) ?? subagent.id}`;
@@ -121,7 +124,7 @@ export async function subagentTool({ thread, socket }, name) {
     return others.length ? `${first} (${others.join(", ")})` : first;
   });
   throw new Error(
-    `The Codex session has no subagent named ${name}. ${known.length > 1 ? `Its subagents are ${known.join(", ")}.` : known.length ? `Its subagent is ${known[0]}.` : "It has no subagents."}`,
+    `The Codex session has no subagent named ${targetName}. ${known.length > 1 ? `Its subagents are ${known.join(", ")}.` : known.length ? `Its subagent is ${known[0]}.` : "It has no subagents."}`,
   );
 }
 
@@ -177,6 +180,7 @@ async function queue(thread, text, run) {
     if (!/\b(E2BIG|ENAMETOOLONG)\b/.test(error.message)) throw error;
     throw new Error(
       `The Codex daemon did not take the message, so pair ran codex queue, which takes the message as an argument. The system refused to start codex queue with a message of ${text.length} characters. Send a shorter message.`,
+      { cause: error },
     );
   }
 }

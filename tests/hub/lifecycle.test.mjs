@@ -58,6 +58,22 @@ test("capability check tests storage, loopback, and the hub port, then cleans up
   assert.equal(await fs.readFile(file, "utf8"), "preserve");
 });
 
+const rewriteStatus = async (session, fields) => {
+  const file = path.join(session.directory, "status.json");
+  const { closedAt: _closedAt, ...state } = JSON.parse(
+    await fs.readFile(file, "utf8"),
+  );
+  await fs.writeFile(file, JSON.stringify({ ...state, ...fields }));
+};
+
+const storedStatus = async (session) => {
+  const file = path.join(session.directory, "status.json");
+  const { stage, closedAt, dismissedAt } = JSON.parse(
+    await fs.readFile(file, "utf8"),
+  );
+  return { stage, closedAt, dismissedAt };
+};
+
 // Before closedAt, the hub stored the round's stage, and Close set it to
 // "complete" with the time in dismissedAt. A reopen set dismissedAt to null and
 // stored the stage again. That hub still reads both fields, and it keeps a
@@ -77,21 +93,9 @@ test("a closed session stays closed after the hub restarts, and one an older hub
   );
   await h.server.close();
   const at = "2026-11-01T12:00:00.000Z";
-  const rewrite = async (session, fields) => {
-    const file = path.join(session.directory, "status.json");
-    const { closedAt, ...state } = JSON.parse(await fs.readFile(file, "utf8"));
-    await fs.writeFile(file, JSON.stringify({ ...state, ...fields }));
-  };
-  const stored = async (session) => {
-    const file = path.join(session.directory, "status.json");
-    const { stage, closedAt, dismissedAt } = JSON.parse(
-      await fs.readFile(file, "utf8"),
-    );
-    return { stage, closedAt, dismissedAt };
-  };
-  await rewrite(closedBefore, { stage: "complete", dismissedAt: at });
+  await rewriteStatus(closedBefore, { stage: "complete", dismissedAt: at });
   // A newer hub closed this session before the older hub reopened it.
-  await rewrite(reopenedBefore, {
+  await rewriteStatus(reopenedBefore, {
     stage: "updated",
     dismissedAt: null,
     closedAt: "2026-10-31T12:00:00.000Z",
@@ -113,12 +117,12 @@ test("a closed session stays closed after the hub restarts, and one an older hub
       (await get("/api/sessions")).sessions.map(({ id }) => id),
       [reopenedBefore.id],
     );
-    assert.deepEqual(await stored(closedBefore), {
+    assert.deepEqual(await storedStatus(closedBefore), {
       stage: "complete",
       closedAt: at,
       dismissedAt: at,
     });
-    assert.deepEqual(await stored(reopenedBefore), {
+    assert.deepEqual(await storedStatus(reopenedBefore), {
       stage: "updated",
       closedAt: null,
       dismissedAt: undefined,
@@ -316,7 +320,12 @@ test("start replaces a stale hub record, and session commands reattach after a c
   );
   await command(
     "publish",
-    ...["--file", agreedFile, "--pages", pagesFile, "--start", "overview"],
+    "--file",
+    agreedFile,
+    "--pages",
+    pagesFile,
+    "--start",
+    "overview",
   );
   const overviewFile = path.join(home, "overview.html");
   await fs.writeFile(

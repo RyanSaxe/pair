@@ -5,6 +5,29 @@ import {
   wakeAlert,
 } from "../../../src/frame/sync/notifications.mjs";
 
+// The hub adds a waiting event when the agent publishes a round's last page.
+const sessionEntry = (id, round, extra = {}) => {
+  const at = extra.publishedAt || new Date().toISOString();
+  return {
+    id,
+    title: `Plan ${id}`,
+    round,
+    stage: "updated",
+    needsYou: true,
+    publishedAt: at,
+    url: `/s/${id}/`,
+    events: [
+      {
+        id: `waiting-${id}-${round}`,
+        kind: "waiting",
+        round,
+        at,
+      },
+    ],
+    ...extra,
+  };
+};
+
 function alertFixture({
   storage = new Map(),
   permission = "default",
@@ -17,13 +40,14 @@ function alertFixture({
   const sent = [],
     opened = [];
   let requests = 0;
-  class Notification {
+  class Notification extends EventTarget {
     static permission = permission;
     static async requestPermission() {
       requests++;
       return (this.permission = "granted");
     }
     constructor(title, options) {
+      super();
       this.title = title;
       this.options = options;
       sent.push(this);
@@ -55,7 +79,15 @@ function alertFixture({
       },
     },
   });
-  const button = {};
+  const clickListeners = [];
+  const button = {
+    addEventListener(type, listener) {
+      if (type === "click") clickListeners.push(listener);
+    },
+    async click() {
+      for (const listener of clickListeners) await listener();
+    },
+  };
   const alerts = createReviewAlerts({
     window: host,
     button,
@@ -63,35 +95,13 @@ function alertFixture({
     open: (url) => opened.push(url),
     cleared: () => null,
   });
-  // The hub adds a waiting event when the agent publishes a round's last page.
-  const entry = (id, round, extra = {}) => {
-    const at = extra.publishedAt || new Date().toISOString();
-    return {
-      id,
-      title: `Plan ${id}`,
-      round,
-      stage: "updated",
-      needsYou: true,
-      publishedAt: at,
-      url: `/s/${id}/`,
-      events: [
-        {
-          id: `waiting-${id}-${round}`,
-          kind: "waiting",
-          round,
-          at,
-        },
-      ],
-      ...extra,
-    };
-  };
   return {
     alerts,
     host,
     button,
     sent,
     opened,
-    entry,
+    entry: sessionEntry,
     requests: () => requests,
   };
 }
@@ -109,7 +119,7 @@ test("alerts announce other sessions once across tabs and never the focused sess
     sessionId: "s2",
     permission: "granted",
   });
-  await a.button.onclick();
+  await a.button.click();
   assert.equal(a.requests(), 1);
   const s1 = a.entry("s1", "2", { publishedAt: later() });
   await Promise.all([a.alerts.update([s1]), b.alerts.update([s1])]);
@@ -120,7 +130,7 @@ test("alerts announce other sessions once across tabs and never the focused sess
   const item = a.sent[0] || b.sent[0];
   assert.equal(item.title, "Round 1 is waiting for you");
   assert.equal(item.options.body, "Plan s3");
-  item.onclick();
+  item.dispatchEvent(new Event("click"));
   assert.deepEqual([...a.opened, ...b.opened], ["/s/s3/"]);
   await a.alerts.update([s1, s3]);
   assert.equal(a.sent.length + b.sent.length, 1);
@@ -143,13 +153,13 @@ test("granted permission enables automatically unless explicitly disabled; re-en
   assert.equal(a.sent.length, 0);
   await a.alerts.update([a.entry("s2", "2", { publishedAt: later() })]);
   assert.equal(a.sent.length, 1);
-  await a.button.onclick();
+  await a.button.click();
   const b = alertFixture({ storage, permission: "granted" });
   const backlog = b.entry("s2", "3", { publishedAt: later() });
   await b.alerts.update([backlog]);
   assert.equal(b.button.textContent, "Enable notifications");
   assert.equal(b.sent.length, 0);
-  await b.button.onclick();
+  await b.button.click();
   await b.alerts.update([backlog]);
   assert.equal(b.sent.length, 0);
   await b.alerts.update([
@@ -170,12 +180,12 @@ test("denied, unavailable, and failed notifications disable the control", async 
     assert.equal(a.sent.length, 0);
   }
   const a = alertFixture({ blockedStorage: true });
-  await a.button.onclick();
+  await a.button.click();
   const entry = a.entry("s2", "1", { publishedAt: later() });
   await a.alerts.update([entry]);
   await a.alerts.update([entry]);
   assert.equal(a.sent.length, 1);
-  a.sent[0].onerror();
+  a.sent[0].dispatchEvent(new Event("error"));
   assert.equal(a.button.disabled, true);
   assert.match(a.button.title, /delivery failed/);
 });
@@ -230,7 +240,7 @@ test("each session start, waiting round and reply in another session alerts once
       ["Agent replied on Overview", "Plan s2"],
     ],
   );
-  for (const item of a.sent) item.onclick();
+  for (const item of a.sent) item.dispatchEvent(new Event("click"));
   assert.deepEqual(a.opened, [
     "/s/s2/",
     "/s/s2/?target=thread-t0#overview",
@@ -248,7 +258,7 @@ test("each session start, waiting round and reply in another session alerts once
     a.sent.slice(3).map((item) => item.title),
     ["Round 4 is waiting for you"],
   );
-  a.sent[3].onclick();
+  a.sent[3].dispatchEvent(new Event("click"));
   assert.equal(a.opened.at(-1), "/s/s3/");
 });
 

@@ -33,9 +33,7 @@ export function renderRounds() {
     remote?.rounds?.length
       ? remote.rounds
       : [{ round: plan.round, publishedAt: null }]
-  )
-    .slice()
-    .reverse();
+  ).toReversed();
   if (
     remote?.openRound &&
     !entries.some((entry) => entry.round === remote.current.round)
@@ -78,7 +76,7 @@ export function renderRounds() {
     line.append(row);
     // A read-only page has no tabs, so a click there opens the round's own
     // page instead of loading the round into the Previous tab.
-    row.onclick = () => {
+    row.addEventListener("click", () => {
       hidePanel("rounds-pop");
       if (here) return;
       if (mode !== "live")
@@ -90,7 +88,7 @@ export function renderRounds() {
       else if (entry.round === latest && currentAvailable())
         switchTab("current", null, { showPage: true });
       else void openPast(entry.round);
-    };
+    });
     list.append(line);
   }
   // The frame shows the plan's name only in this panel.
