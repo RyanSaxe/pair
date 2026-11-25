@@ -10,48 +10,46 @@ npx skills add RyanSaxe/pair -g           # the skill your agent CLI loads
 
 ## Your agent CLI
 
-Claude Code lists the skill as `/pair`, and Codex as `$pair`.
+Claude Code lists the skill as `/pair`, and Codex lists it as `$pair`.
 
-| Agent CLI       | What it needs                                                                                                                                                                                                                                                                                              |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Claude Code     | When `npx skills add` asks which agents to install to, select Claude Code and keep Symlink.                                                                                                                                                                                                                |
-| Codex           | Run `pair setup-codex` once, then restart Codex. `pair start` refuses to run under Codex until you do. See [Troubleshooting](../troubleshooting.md#codex-asks-to-approve-every-pair-command).                                                                                                              |
-| Copilot CLI     | Start it as `copilot --ui-server`, or the hub cannot wake it. When you started it without that flag, `pair start` prints the command that restarts your Copilot session with it.                                                                                                                           |
-| pi              | pi 0.79.3 or newer. Install pair's extension once with `pi install`, then restart pi. `pair start` prints the full command, with the extension's path on your machine.                                                                                                                                     |
-| opencode        | opencode 1.17.7 or newer. Add pair's plugin to `"plugin"` in opencode's global config once, then restart opencode. On opencode 2 the plugin is the folder `adapters/opencode`, and on opencode 1 the file `adapters/opencode/plugin.js`. `pair start` prints both paths and the config file to add one to. |
-| Antigravity CLI | Antigravity CLI 1.5.6 or newer. When `npx skills add` asks which agents to install to, select Antigravity CLI. agy asks you to approve each `pair` command unless `~/.gemini/antigravity-cli/settings.json` has `"permissions": {"allow": ["command(pair)"]}`.                                             |
+| Agent CLI       | Setup                                                                                                                                                                                                                                                                  |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code     | Select Claude Code when `npx skills add` prompts, and keep Symlink.                                                                                                                                                                                                    |
+| Codex           | Run `pair setup-codex` once, then restart Codex. `pair start` refuses under Codex until you do. See [Troubleshooting](../troubleshooting.md#codex-asks-to-approve-every-pair-command).                                                                                 |
+| Copilot CLI     | Start with `copilot --ui-server` so the hub can wake it. Without that flag, `pair start` prints the restart command.                                                                                                                                                   |
+| pi              | Requires pi 0.79.3 or newer. Run `pi install` once with pair's extension, then restart pi. `pair start` prints the full command and path.                                                                                                                              |
+| opencode        | Requires opencode 1.17.7 or newer. Add pair's plugin to `"plugin"` in opencode's global config once, then restart opencode: folder `adapters/opencode` on opencode 2, file `adapters/opencode/plugin.js` on opencode 1. `pair start` prints both paths and the config. |
+| Antigravity CLI | Requires Antigravity CLI 1.5.6 or newer. Select Antigravity CLI during `npx skills add`. To skip per-command approvals, add `"permissions": {"allow": ["command(pair)"]}` to `~/.gemini/antigravity-cli/settings.json`.                                                |
 
 A `codex exec` run needs permission to run `pair` outside Codex's sandbox before
-it starts. The hub can wake a `codex exec` run only while it is still running.
+it starts. The hub can wake `codex exec` only while it is running.
 
-Copilot CLI asks "Allow path access" before the agent's first `pair` command
-that includes the session's directory, because that directory is under pair's
-state directory, `~/.local/state/pair/`, outside your project. Start Copilot
-with `--add-dir` to allow pair's state directory:
+Copilot CLI asks "Allow path access" on the first `pair` command that references
+the session directory under `~/.local/state/pair/`. Allow that directory at
+startup:
 
 ```sh
 copilot --ui-server --add-dir ~/.local/state/pair
 ```
 
-When you set `XDG_STATE_HOME`, pair's state directory is `$XDG_STATE_HOME/pair`.
-Copilot CLI 1.0.92 has no config setting that allows a directory, so put both
-flags in a shell alias to use them in every session. Use `--add-dir` rather than
-`--allow-all-paths`, which turns off Copilot's path check for every directory.
+If `XDG_STATE_HOME` is set, pass `$XDG_STATE_HOME/pair` instead. Copilot CLI
+1.0.92 has no config setting for allowed directories, so alias both flags. Avoid
+`--allow-all-paths`, which disables path checks for every directory.
 
 ## Good to know
 
 - `npx skills add` may print
   `✗ pair → PromptScript: PromptScript does not support global skill installation`.
-  That message is about another agent, and the skill is still installed.
-- If you already have a different skill named pair, rename it first, both its
-  folder and the `name` in its `SKILL.md`. Otherwise `npx skills add` replaces
-  it after it asks "Proceed with installation?".
+  Ignore it; the skill installs for your selected agents.
+- If you already have another skill named `pair`, rename its folder and the
+  `name` in its `SKILL.md` first, or `npx skills add` replaces it after asking
+  "Proceed with installation?".
 
 ## Update
 
 Run `npm update -g @ryansaxe/pair`. You never need to reinstall the skill,
-because the skill contains only the instruction to run `pair guide`, which
-prints the instructions of the `pair` you have installed.
+because it only instructs the agent to run `pair guide`, which prints the
+installed version's guide.
 
-Before you update from 0.2 to 0.3, close every open session. Version 0.3 cannot
-read the side work, offers or accepted plans that earlier versions stored.
+Close all open sessions before updating from 0.2 to 0.3. Version 0.3 cannot read
+side work, offers, or accepted plans stored by earlier versions.

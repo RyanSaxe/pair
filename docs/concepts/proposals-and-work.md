@@ -1,269 +1,198 @@
 # Proposals and Work
 
-The agent records each piece of work it thinks is worth doing as a **proposal**,
-apart from the session's own task. The agent works on the session's task across
-the rounds, and builds it when you choose Build it as you send a round. A
-proposal is a card that describes what the work delivers and where the agent
-recommends it runs. You decide what happens to each one. You approve the work by
-pressing **Start** on the card, and you approve only what the card describes.
+Apart from the session's main task (built when you send a round with
+**Build it**), the agent records suggested work as **proposals**. Each proposal
+is a card stating what it delivers and where the agent recommends running it.
+Press **Start** to approve only what the card describes.
 
-When you ask the agent in your own words for work beside the session's task, the
-agent records a proposal for it, or uses one that already covers it, and starts
-it for you, quoting your words. Every such piece of work you approve therefore
-has a card.
+If you ask in your own words for extra work, the agent creates or reuses a
+proposal and starts it quoting you, so every approved piece of work has a card.
 
 ## The Work page
 
-**Work**, in the sidebar above Review, lists every proposal of the session, from
-the moment the agent records it, in three tabs:
+**Work** (in the sidebar above Review) lists all session proposals in three
+tabs:
 
-| Tab      | Lists                                                                                                                                           |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Running  | Work you approved that runs in this session and is not finished yet.                                                                            |
-| Proposed | Proposals waiting for you to start or decline them.                                                                                             |
-| Done     | Finished work, work running in its own session, proposals the agent joined into another, and proposals that you declined or the agent withdrew. |
+| Tab      | Lists                                                                                                                               |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Running  | Unfinished work approved to run in this session.                                                                                    |
+| Proposed | Proposals waiting for you to start or decline.                                                                                      |
+| Done     | Finished work, work running in its own session, joined proposals, and declined or withdrawn proposals.                              |
 
-A proposal you start in a sub-session or with a new agent goes to Done as soon
-as it starts, because the work has its own session's rounds. Its card in Done
-has the link to that session and the words that started the work.
+Proposals started in a sub-session or with a new agent move to Done immediately
+with a link to their session and the words that started them.
 
-pair puts a card on a tab by the card's own state alone. A reply from the agent,
-or a round waiting in the work's own session, adds a row to the bell and leaves
-the card on its tab. The status line of an unfinished card shows either one.
+Tab placement depends strictly on card state. An agent reply or a waiting round
+in a linked session adds a bell row and updates the card's status line without
+changing its tab.
 
-Work opens on Proposed when a proposal is waiting for you to start it, and
-otherwise on the first tab that has a card in it. When you click a card's row in
-the [bell](sessions-and-rounds.md#the-bell), open it in
-[Notifications](sessions-and-rounds.md#notifications), or click a system
-notification about a card, Work opens on that card's tab instead, with the card
-or the agent's reply in view. The Work row in the sidebar shows one number, the
-number of cards in Proposed.
+Work opens on Proposed if any proposals wait there, or the first non-empty tab
+otherwise. Clicking a card in the [bell](sessions-and-rounds.md#the-bell),
+[Notifications](sessions-and-rounds.md#notifications), or a system notification
+jumps directly to that card's tab. The sidebar's Work badge counts only Proposed
+cards.
 
-While you read a tab, the cards on screen keep their place when other cards
-change. A card on screen that changes tab, such as one you start or decline,
-stays where it is with its new status until you change tab. Until then, the
-tab's count can be lower than the number of cards it lists.
+Cards on screen hold their position while you read. A card you start or decline
+shows its new status in place until you switch tabs, so the tab count can
+briefly be lower than the visible cards.
 
 ### Cards
 
-Each card shows the work's title, a status line, and what the work delivers.
-When the agent writes about a proposal on a page, it puts the same card on the
-page, with the same buttons.
+Each card shows its title, status line, and deliverable; inline proposal cards
+on pages have the same buttons.
 
-- The status line shows the state of the work. On most cards, it also links to
-  where the proposal came from, or to the session the work runs in.
-- When you started the work with a message, the card shows your message in
-  quotes.
-- When the agent started the work on your words, the card shows Started from
-  your words, with a link to where you wrote them, and shows your words in
-  quotes.
-- While the work runs, the card lists its parts in the order the agent added
-  them, each marked done, left or dropped, with a dropped part crossed off.
-  Above the parts, it shows how many parts are done, leaving out the dropped
-  ones, and the next part left. Narrower than 720px, the card shows only that
-  line until you tap it. The agent records the parts with
-  [`pair propose`](../reference/commands.md#pair-propose), and no command
-  removes a part.
+- The status line shows state and links to the proposal's origin or linked
+  session.
+- Start messages appear in quotes. Work started from your words shows
+  **Started from your words** with a link and quote.
+- Running cards list parts in creation order (done, left, or crossed-off
+  dropped) with a header summarizing completed vs. remaining non-dropped parts
+  and the next part left (collapsed to that header below 720px until tapped).
+  The agent updates parts with
+  [`pair propose`](../reference/commands.md#pair-propose); no command deletes a
+  part.
 
-pair labels a card **New** until you have seen it on Work, as it labels an
-unopened page in the sidebar. pair records a card as seen once half of it is on
-screen on Work, and a card you see only on another page stays New. The hub
-stores which cards you have seen, so a phone and a computer on the same hub show
-the same New labels. pair never labels a card in Done as New.
+Unseen Proposed and Running cards carry a **New** label until at least half the
+card scrolls into view on Work (viewing it on another page does not clear New).
+Seen state syncs via the hub across devices. Done cards never show New.
 
 ### Writing your own item
 
-**New work item**, at the top of Work, opens a form with a title and a
-description of up to 4,000 characters. You can add images to the description, as
-you do to a note. Choose where the work runs, as you do with Start, and press
-**Start**, or press **Save for later** to put the card in Proposed. Work then
-opens the card's tab with the card in view. pair keeps your text and images
-until the card exists, so closing the form or reloading the page loses nothing.
+**New work item** at the top of Work opens a form (title, up to 4,000-character
+description, and optional images). Choose where it runs and click **Start**, or
+**Save for later** to add it to Proposed. Unsubmitted text and images persist
+across closes and reloads.
 
-The hub tells no agent about a saved card until you start it, and it refuses an
-agent's attempt to revise, withdraw or join a card you wrote.
+The hub hides saved cards from agents until you start them and refuses agent
+attempts to revise, withdraw, or join user-written cards.
 
 ### Status lines
 
-| Status line                                          | Meaning                                                                                  |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Proposed                                             | Nobody has started the work.                                                             |
-| Working here                                         | The work runs in this session's rounds.                                                  |
-| Opening a sub-session, Opening a new agent session   | You started the work in its own session, and the agent has not created that session yet. |
-| Planning in a sub-session, Planning with a new agent | You started the work with Plan it first, and have not chosen Build it in its session.    |
-| In its own session                                   | The work runs in its own session, and the **Open** link beside it opens that session.    |
-| Waiting for you                                      | The session the work runs in has a round waiting for you.                                |
-| Agent replied                                        | The agent replied on a card that is not finished, and the bell still lists that reply.   |
-| Done                                                 | The work is finished.                                                                    |
-| Declined                                             | You declined the proposal.                                                               |
-| Withdrawn                                            | The agent withdrew the proposal, and the card shows its reason.                          |
+| Status line                                          | Meaning                                                                             |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Proposed                                             | Not started yet.                                                                    |
+| Working here                                         | Running in this session's rounds.                                                   |
+| Opening a sub-session, Opening a new agent session   | Approved for its own session; agent has not created that session yet.               |
+| Planning in a sub-session, Planning with a new agent | Started with Plan it first; Build it has not been chosen in that session yet.       |
+| In its own session                                   | Running in a linked session (click **Open** beside it).                             |
+| Waiting for you                                      | The linked session has a round waiting for you.                                     |
+| Agent replied                                        | Unfinished card has an unread agent reply in the bell.                              |
+| Done                                                 | Finished.                                                                           |
+| Declined                                             | Declined by you.                                                                    |
+| Withdrawn                                            | Withdrawn by the agent (card shows reason).                                         |
 
 ### What you can do with a card
 
-| To                    | Do this                                                                                                                                     |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Approve the work      | Press **Start**, choose where the work runs, and add a message to the agent or check Plan it first if you want.                             |
-| Turn it down          | Press **Decline**. The agent drops the proposal and does not suggest it again.                                                              |
-| Ask about it          | Click the card, then press the comment button at the bottom right, or <kbd>c</kbd>. Send it as a [thread](threads.md) to get an answer now. |
-| Bring a proposal back | Press **Restore** on a declined or withdrawn card in Done. pair moves the card back to Proposed.                                            |
+| Action           | How                                                                                                                               |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Approve work     | Press **Start**, pick where it runs, and optionally add a message or check **Plan it first**.                                     |
+| Turn it down     | Press **Decline**. The agent drops it and does not re-propose it.                                                                 |
+| Ask about it     | Click the card, then press the comment button or <kbd>c</kbd>, and send as a [thread](threads.md) for an immediate reply.         |
+| Restore a card   | Press **Restore** on a declined or withdrawn card in Done to move it back to Proposed.                                            |
 
 ## Where the work runs
 
-When you press Start, a drawer shows what the proposal delivers, the titles of
-any proposals joined into it, and the three places the work can run, with the
-agent's recommendation marked. It also has a box for a message to the agent.
+Pressing **Start** opens a drawer showing the deliverable, any joined proposals,
+three execution targets (with the agent's recommendation marked), and an
+optional message box:
 
-| Choice           | What happens                                                                                                                                                                                                                                                                                                    |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Here             | This session's agent starts the work right away. It publishes the work's pages in the session's next round, or in the round it is writing when it has not yet published that round's Agreed.                                                                                                                    |
-| In a sub-session | This session's agent creates a session linked to this one and builds the work there, with subagents doing the steps, so this session's rounds continue.                                                                                                                                                         |
-| With a new agent | A separate agent builds the work in its own session, linked to this one. Pressing **Copy command** approves the work and copies `pair start --from DIR --proposal ID` for you to paste into any agent. With **Open a new agent session**, you ask this session's agent to open that agent where you can see it. |
+| Choice           | Behavior                                                                                                                                                                                                    |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Here             | This session's agent starts immediately and publishes pages in the current unpublished round or the next round.                                                                                             |
+| In a sub-session | This session's agent opens a linked session and builds there using subagents while this session continues.                                                                                                  |
+| With a new agent | A separate agent builds in a linked session. **Copy command** approves and copies `pair start --from DIR --proposal ID`; **Open a new agent session** asks this session's agent to launch that agent visibly. |
 
-Below the message box is the **Plan it first** checkbox. When you check it, the
-agent in the work's own session works towards a plan in that session's rounds,
-and builds nothing until you choose Build it in one of them. The card's status
-line starts with Planning until then. When you choose Here, the checkbox turns
-off and cannot be checked, because a plan round in this session would mix with
-its other work.
+Check **Plan it first** (available for sub-sessions and new agents, disabled for
+**Here**) so the linked session plans in rounds before building anything; the
+status line shows **Planning** until you pick **Build it** there.
 
-Starting work never ends the round you are reading. Your drafts on the round
-stay, and you can start more work before you send the round.
+Starting work leaves the current round open and your drafts intact.
 
-With an executable launch script at `~/.config/pair/spawn`, or
-`~/.config/pair/spawn.ps1` on Windows, the Open a new agent session button reads
-**Start agent**. When you press it with no message, the hub runs the script,
-with PowerShell on Windows, as `spawn DIR COMMAND ARG…`. `DIR` is the folder in
-which this session's agent ran `pair start`, and the command starts a new
-session of the same agent CLI with a prompt to run `pair register --name ID`,
-where ID is the proposal's ID, then `pair guide` and `pair start --from` for the
-proposal. `pair agents` then lists the session by the proposal's ID, or by its
-default name when another running session already has that name. When the script
-fails, the drawer shows its error, and the work stays approved as after Copy
-command. When you press Start agent with a message, the hub runs no script and
-asks this session's agent, as Open a new agent session does.
+If `~/.config/pair/spawn` (or `spawn.ps1` on Windows) exists and is executable,
+**Open a new agent session** becomes **Start agent**. Clicking it with no
+message runs `spawn DIR COMMAND ARG…` (via PowerShell on Windows), launching the
+same CLI in the session's directory with a prompt to run
+`pair register --name ID` (falling back to the default name on collision),
+`pair guide`, and `pair start --from`. If the script fails, the drawer shows its
+error and the work stays approved as with Copy command.
 
-Name a CLI, model, effort or mode in the message, such as “codex, high effort,
-no approvals”, and this session's agent starts the new agent with them. It uses
-`pair spawn` when you have a launch script, and otherwise starts the agent any
-other way it can. The agent cannot always start a new agent. It replies in a
-thread on the card with what it started, or with the command when it cannot
-start one. To tell the agent how to start one on your machine, such as in a tmux
-pane, write your instructions in `~/.config/pair/moments/read-open-agent.md`.
-`pair` prints that file after its own instructions for that step, as
-[the guide](../reference/the-guide.md) describes.
+Including a message (such as "codex, high effort, no approvals") routes through
+this session's agent instead, which uses `pair spawn` if configured or starts
+the agent another way and replies in a thread on the card. Add machine-specific
+launch instructions in `~/.config/pair/moments/read-open-agent.md` (see
+[the guide](../reference/the-guide.md)).
 
 ## When you ask in your own words
 
-When you tell the agent in a note, a thread or the chat to do a piece of work,
-the agent records a proposal for it, or uses one that already covers it. Then it
-starts the proposal with `pair propose --start`, quoting you. The work runs as
-if you had pressed Start, where you said it should run, or where the agent
-recommends when you did not say.
-
-The card reads Started from your words, shows your words in quotes, and links to
-the page or thread where you wrote them. Once work has started, its card has no
-button that stops it, so tell the agent when you do not want the work.
+If you request work in a note, thread, or chat, the agent creates or reuses a
+proposal and runs `pair propose --start` quoting you, using your chosen target
+or its recommendation. The card shows **Started from your words**, your quote,
+and a link to its source. Started cards have no cancel button; tell the agent if
+you no longer want the work.
 
 ## Plans
 
-A plan is a round from which an engineer or agent who saw none of the rounds
-could build the work without asking questions. It contains:
+A plan round gives any engineer or agent everything needed to build without
+seeing earlier rounds:
 
-- what the work achieves and why
-- the approach and the alternatives set aside
-- each change, with the files and interfaces it touches
-- every look and interface, exactly as you approved it
-- what is out of scope
-- how to check that the work is done
+- goal and rationale
+- chosen approach and rejected alternatives
+- changes with affected files and interfaces
+- exact approved looks and interfaces
+- out-of-scope boundaries
+- verification steps
 
-The agent makes a round a plan when you choose Write a plan as you send a round,
-or when it judges that it knows enough to write one. pair marks a plan round
-with a grey Plan tag. [Plan a change](../guides/plan-a-change.md) explains how
-you read a plan and build from it. For a proposal that runs in its own session,
-check Plan it first when you start it, and the agent in that session plans the
-work before it builds it.
+The agent writes a plan when you send with **Write a plan** or when it has
+enough context, marking it with a grey **Plan** tag (see
+[Plan a change](../guides/plan-a-change.md)). For proposals in linked sessions,
+check **Plan it first** when starting them.
 
 ## When work is finished
 
-How work finishes depends on where it runs.
-
-- Work that runs here is finished when the agent publishes the last page about
-  it. On that page, the agent explains the work well enough for you to review
-  and maintain it. The agent then marks the proposal done with
-  `pair propose --done`, and pair moves the card to Done. Until then, the agent
-  keeps building the work in every round after you send one, whether or not you
-  mention the work in it. When you ask for changes to finished work in what you
-  send, the agent reopens the proposal with `pair propose --reopen`, and pair
-  moves the card back to Running.
-- Work that runs in a sub-session or a new agent session is finished when you
-  close that session. The hub then marks the proposal done, and the status line
-  shows Done in its own session. This session's agent sees that the proposal is
-  done the next time it runs `pair read`, and builds on the work done in that
-  session. When someone reopens that session, the hub takes the mark away, and
-  the card stays in Done with the status line In its own session.
+- **Here**: After publishing the final review page, the agent runs
+  `pair propose --done` and pair moves the card to Done. Until then, the agent
+  continues the work on every round. Asking for changes in a later send makes
+  the agent run `pair propose --reopen`, moving the card back to Running.
+- **Sub-session or new agent**: Closing that linked session marks the proposal
+  done (**Done in its own session**), which this session's agent sees on its
+  next `pair read`. Reopening that session clears the done mark and returns the
+  status line to **In its own session** (staying in Done).
 
 ## Done elsewhere, withdrawn or joined
 
-The agent also keeps the cards up to date as the session goes on:
-
-- When a proposal's work was finished some other way, such as in a pull request,
-  the agent marks the proposal done with `pair propose --done` and `--where`.
-  The status line then shows Done and the place, such as Done · in #86. The
-  agent can do this for a proposal you have not approved, or one that runs here,
-  but not for one whose work runs in its own session. That work finishes when
-  you close its session.
-- When a proposal you have not approved no longer applies, the agent withdraws
-  it with `pair propose --withdraw` and gives a reason. pair moves the card to
-  Done, marked Withdrawn, with the agent's reason. Press Restore to put it back
-  in Proposed.
-- When the work of one proposal covers another, the agent joins the second into
-  the first with `pair propose --join`, so you follow one card.
+- **Done elsewhere**: `pair propose --done --where TEXT` marks an unstarted or
+  running-here proposal done with a location (for example, `Done · in #86`). Not
+  allowed for linked-session proposals.
+- **Withdrawn**: `pair propose --withdraw --reason TEXT` moves an unapproved
+  proposal to Done (**Withdrawn**) with a reason. Press **Restore** to return it
+  to Proposed.
+- **Joined**: `pair propose --join OTHER` merges a redundant proposal into
+  another so you track one card.
 
 ## Joined proposals
 
-The agent can join proposal A into proposal B when B's work covers A's. The hub
-accepts the join only when both of these are true:
+The hub accepts joining proposal A into proposal B only when A is in Proposed
+and B is either unstarted or running here (never declined, withdrawn, done,
+joined, or already running in its own session).
 
-- A is in Proposed.
-- B's work has not started or runs here. The agent that builds B reads the
-  proposals joined into it when the work starts, so the hub refuses to join a
-  proposal into one whose work already runs in its own session.
-
-The hub also refuses to join a proposal into one that is declined, withdrawn,
-done or joined into another.
-
-B's card, and its Start drawer, list the joined proposals under Joined into this
-proposal. pair moves each joined card to Done, and its status line shows Done
-and Joined with B's title, such as Done · Joined Retry a charge on a timeout.
-When the agent joins a card that other cards were joined into, the hub moves
+B's card and Start drawer list joined proposals under
+**Joined into this proposal**. Joined cards move to Done with status
+`Done · Joined <B's title>`. Joining a card that already has joined cards moves
 those cards to B as well.
 
-When you start B, you approve the work of every proposal joined into it, and the
-agent builds all of it. The agent sees the joined proposals in the output of
-these commands:
-
-- `pair read`, when you start B and while B's work runs here
-- `pair propose --start`, when the holder starts B on your words
-- `pair start --from`, when B runs in a linked session
-- `pair status`
-
-Joined cards stay joined when B's work finishes or the agent reopens B. When the
-agent runs `pair propose --reopen` on a joined card, pair moves that card back
-to Proposed.
+Starting B approves all joined proposals, which appear in `pair read`,
+`pair propose --start`, `pair start --from`, and `pair status`. Joined cards
+stay joined when B finishes or reopens; `pair propose --reopen` on a joined card
+returns it to Proposed.
 
 ## Sub-sessions and new agent sessions
 
-A sub-session and a new agent session are both sessions linked to this one, and
-each one links to the other. This session's agent runs a sub-session alongside
-this one. A separate agent runs a new agent session. That agent can read this
-session for context, but never takes it over. In the browser, the two kinds work
-the same way:
+Both are linked sessions with two-way links to their parent. This session's
+agent runs a sub-session; a separate agent runs a new agent session (reading the
+parent for context without taking it over). Both behave identically in the
+browser:
 
-- The card shows Opening a sub-session, or Opening a new agent session, until
-  the agent creates the session. Then the card's status line has an **Open**
-  link to it.
-- The session list shows the session indented under this one.
-- The line under its header shows this session's name, a chevron and its own
-  name. Click this session's name to go back.
-- You send its rounds as in any session. When you close it, the hub marks the
-  proposal done in this session.
+- Card status shows **Opening…** until created, then offers an **Open** link.
+- The session list indents the linked session under its parent.
+- A breadcrumb under the header links back to the parent session.
+- Rounds work normally; closing the session marks the parent proposal done.

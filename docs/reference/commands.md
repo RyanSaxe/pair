@@ -1,92 +1,80 @@
 # Commands
 
-`pair --help` lists every command with what it does, and `pair COMMAND --help`
-prints that command's usage and flags without running it. `pair --version`
-prints the version.
+`pair --help` lists all commands; `pair COMMAND --help` shows usage and flags
+without running the command; `pair --version` prints the version.
 
-| Command                                                | What it does                                                                                                                                                                                                                                                                                                           |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pair guide`, `pair guide FILE`                        | Prints the agent's instructions, `guide/pair.md`. With FILE, it prints that file instead, such as the guide file `pages.md`, the moment `moments/read-thread.md` or a component's markup, `components/NAME/markup.html`.                                                                                               |
-| `pair components`                                      | Lists every component, pair's and yours, with when to use it and the `pair guide` command that prints its markup.                                                                                                                                                                                                      |
-| `pair start --title TEXT`                              | Creates a session, makes the agent that runs it the holder, and prints the session's directory and URL.                                                                                                                                                                                                                |
-| `pair start --session-dir DIR`                         | Resumes the session in DIR, or takes it over from another agent.                                                                                                                                                                                                                                                       |
-| `pair start --reopen --session-dir DIR`                | Makes the closed session in DIR live again, with the agent that runs it as the holder. The Reopen button on a closed session copies this command. Without `--reopen`, `pair start` on a closed session prints that you closed it.                                                                                      |
-| `pair start --from DIR --proposal ID`                  | Creates a session for a proposal of the session in DIR that you approved to run in a sub-session or with a new agent. It links the two sessions and prints the proposal with the proposals joined into it.                                                                                                             |
-| `pair read`                                            | Prints the next thing you sent that the agent has not read, a whole round or a Start, and marks it read. It lists each thread with a new message from you, and each proposal you declined or linked session you closed since the last `pair read`. `--submission ID` prints a past submission again and marks nothing. |
-| `pair read --thread ID`                                | Prints one thread whole, with how to answer it, and marks it read.                                                                                                                                                                                                                                                     |
-| `pair search QUERY`                                    | Prints the results that best match QUERY across live sessions, for the agent to find what an earlier session settled. `--closed` includes closed sessions, and `--kind`, `--this-session` and `--limit` narrow them.                                                                                                   |
-| `pair progress --page ID --note TEXT`                  | Reports that the agent started a page, a note on a page, or, without `--page`, a note on the round. The progress card shows each report.                                                                                                                                                                               |
-| `pair publish --file HTML`                             | Publishes a page that `pair build` wrote. The first publish of a round is Agreed, with the round's page list in `--pages`. A publish that would leave pages unpublished and none started needs `--start ID`, which starts the page the agent works on next, and `--note TEXT` gives that page a note.                  |
-| `pair reply --thread ID --text TEXT`, or `--file HTML` | Posts the agent's reply in a thread, as plain text or as an HTML fragment that passes `pair build`'s page checks.                                                                                                                                                                                                      |
-| `pair reply --thread ID --ack`                         | Acknowledges your messages in a thread that wait for an answer, in place of a reply, when they ask for nothing. pair shows "Acknowledged by the agent" in the thread.                                                                                                                                                  |
-| `pair propose --id ID`                                 | Records a proposal, or changes the one with that ID, as [`pair propose`](#pair-propose) describes. Any agent may run it.                                                                                                                                                                                               |
-| `pair status`                                          | Prints the session's status. Any agent may run it.                                                                                                                                                                                                                                                                     |
-| `pair pause --reason TEXT`                             | Pauses the session when you tell the agent to stop. `pair start --session-dir` resumes it. You end a session by closing it in the browser.                                                                                                                                                                             |
-| `pair register`                                        | Adds the agent session it runs in to pair's list of running agent sessions and prints the session's name and ID, as [`pair register` and `pair agents`](#pair-register-and-pair-agents) describes.                                                                                                                     |
-| `pair agents`                                          | Lists the registered agent sessions that are running.                                                                                                                                                                                                                                                                  |
-| `pair message --to NAME --text TEXT`                   | Sends a message to a running agent session, as [`pair message`](#pair-message) describes. `--file PATH` sends a file's text, and `--ack` acknowledges a message.                                                                                                                                                       |
-| `pair spawn CLI`                                       | Starts a session of an agent CLI through your launch script and prints its name, as [`pair spawn`](#pair-spawn) describes.                                                                                                                                                                                             |
-| `pair build SOURCE.json OUTPUT.html`                   | Builds a page from its source. When the source has problems, it lists every structural problem, including any unknown field, and writes nothing. It refuses to overwrite OUTPUT.html.                                                                                                                                  |
-| `pair diff BEFORE AFTER OUTPUT.json`                   | Writes the input for the before-after component from two files.                                                                                                                                                                                                                                                        |
-| `pair check`                                           | Checks Node, storage, loopback, the hub port and Codex's rules file, and prints one line for each.                                                                                                                                                                                                                     |
-| `pair setup-codex`                                     | Writes the Codex allow rule for `pair` to `~/.codex/rules/pair.rules`, which `pair start` requires under Codex.                                                                                                                                                                                                        |
+| Command                                                | Behavior                                                                                                                                                                                                    |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pair guide`, `pair guide FILE`                        | Prints `guide/pair.md`, or a specific guide file (`pages.md`), moment (`moments/read-thread.md`), or component markup (`components/NAME/markup.html`).                                                      |
+| `pair components`                                      | Lists built-in and custom components with usage guidance and their `pair guide` commands.                                                                                                                   |
+| `pair start --title TEXT`                              | Creates a session, sets the caller as holder, and prints its directory and URL.                                                                                                                             |
+| `pair start --session-dir DIR`                         | Resumes the session in DIR or takes it over from another agent.                                                                                                                                             |
+| `pair start --reopen --session-dir DIR`                | Reopens a closed session with the caller as holder (copied by the browser's Reopen button). Without `--reopen`, `pair start` reports that the session is closed.                                            |
+| `pair start --from DIR --proposal ID`                  | Creates a linked session for an approved proposal of DIR and prints the proposal plus any joined proposals.                                                                                                 |
+| `pair read`                                            | Prints the next unread submission (round or Start) and marks it read, plus unread threads, newly declined proposals, and newly closed linked sessions. `--submission ID` reprints a past submission read-only. |
+| `pair read --thread ID`                                | Prints a full thread with reply instructions and marks it read.                                                                                                                                             |
+| `pair search QUERY`                                    | Searches live sessions for what earlier sessions settled. Flags: `--closed`, `--kind`, `--this-session`, `--limit`.                                                                                         |
+| `pair progress --page ID --note TEXT`                  | Marks a page started or posts a note on a page (or on the round without `--page`) for the progress card.                                                                                                    |
+| `pair publish --file HTML`                             | Publishes a built page. First publish of a round is Agreed with `--pages`. Leaving unpublished pages with none started requires `--start ID` (with optional `--note TEXT`).                                 |
+| `pair reply --thread ID --text TEXT`, or `--file HTML` | Posts a thread reply as plain text or a checked HTML fragment.                                                                                                                                              |
+| `pair reply --thread ID --ack`                         | Acknowledges pending thread messages that need no reply ("Acknowledged by the agent").                                                                                                                      |
+| `pair propose --id ID`                                 | Creates or updates a proposal (see [`pair propose`](#pair-propose)). Any agent may run it.                                                                                                                  |
+| `pair status`                                          | Prints session status. Any agent may run it.                                                                                                                                                                |
+| `pair pause --reason TEXT`                             | Pauses the session when you tell the agent to stop. Resume with `pair start --session-dir`; end by closing in the browser.                                                                                  |
+| `pair register`                                        | Registers the current agent session in `pair agents` and prints its name and ID (see [`pair register` and `pair agents`](#pair-register-and-pair-agents)).                                                  |
+| `pair agents`                                          | Lists running registered agent sessions.                                                                                                                                                                    |
+| `pair message --to NAME --text TEXT`                   | Messages a running agent session (see [`pair message`](#pair-message)). Supports `--file PATH` and `--ack`.                                                                                                 |
+| `pair spawn CLI`                                       | Launches a CLI session via your launch script and prints its name (see [`pair spawn`](#pair-spawn)).                                                                                                        |
+| `pair build SOURCE.json OUTPUT.html`                   | Validates and builds a page from source; lists all structural errors (including unknown fields) without writing on failure, and refuses to overwrite OUTPUT.html.                                           |
+| `pair diff BEFORE AFTER OUTPUT.json`                   | Builds `before-after` component input from two files.                                                                                                                                                       |
+| `pair check`                                           | Verifies Node, storage, loopback, hub port, and Codex rules, printing one line per check.                                                                                                                   |
+| `pair setup-codex`                                     | Writes `~/.codex/rules/pair.rules`, required by `pair start` under Codex.                                                                                                                                   |
 
 ## Session commands
 
-Every session command takes `--session-dir DIR`, except `pair start` when it
-creates a session. A session command prints these, in order:
+Every session command except a fresh `pair start` takes `--session-dir DIR` and
+prints, in order:
 
 1. The next step.
-2. The instructions for that moment of the session.
-3. Its result, with your words inside `pair_` tags.
+2. The moment's instructions.
+3. The result, with your words wrapped in `pair_` tags.
 
-The result of `pair read` starts with the round, whether it is a plan, and the
-latest submission's ID, which `--submission` takes.
+`pair read` opens with the round number, plan flag, and latest submission ID
+(usable with `--submission`). If any page or proposal has been quiet for 10
+minutes, the next step appends a reminder (see
+[Quiet work](../concepts/architecture.md#quiet-work)).
 
-While a page or a proposal has had no update for 10 minutes, the next step ends
-with a line about it, as [Quiet work](../concepts/architecture.md#quiet-work)
-describes.
-
-When the output is long, it prints the next step again at the end. `--json`
-prints the result as one JSON object instead. When the output of `pair read` or
-`pair status` is over 10,000 bytes, the command writes its result to a file in
-the session's `output/` directory and prints the file's path.
+Long outputs repeat the next step at the end. `--json` outputs a single JSON
+object. If `pair read` or `pair status` exceeds 10,000 bytes, it writes the
+result to the session's `output/` directory and prints the file path.
 
 ## pair propose
 
-`pair propose` with `--id`, `--title`, `--delivers` and `--recommend` records a
-new proposal. `--recommend` takes `here`, `sub-session` or `new-agent`. Add
-`--page ROUND/PAGE` or `--thread ID` for where the work came up. With one of the
-flags below, the command changes the proposal that has the ID instead.
+Create a proposal with `--id`, `--title`, `--delivers`, and `--recommend`
+(`here`, `sub-session`, or `new-agent`), plus optional `--page ROUND/PAGE` or
+`--thread ID` for origin. Update an existing proposal with one of these flags:
 
-| Flag                         | What it does                                                                                                                                                                                                                                                     |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--revise`                   | Replaces the fields given and keeps the rest. The hub refuses it once you have approved the work, or once the proposal is declined, withdrawn or marked done.                                                                                                    |
-| `--start WHERE --quote TEXT` | Marks the proposal started because you asked for the work in your own words, and quotes your words with `--quote`. WHERE is `here`, `sub-session` or `new-agent`. When the holder runs it, `pair propose` prints the started work as `pair read` prints a Start. |
-| `--withdraw --reason TEXT`   | Withdraws a proposal that you have not approved and that no longer applies.                                                                                                                                                                                      |
-| `--done`                     | Marks work that runs here done, after the agent publishes its last page. With `--where TEXT`, such as `--where "in #86"`, it marks a proposal done whose work was finished somewhere else.                                                                       |
-| `--join OTHER`               | Joins a proposal that is still in Proposed into OTHER, whose work covers it. The hub refuses it when OTHER is declined, withdrawn, done or joined itself, or runs in a sub-session or with a new agent.                                                          |
-| `--reopen`                   | Undoes the agent's own `--done` or `--join`. The hub refuses it for a proposal that it marked done because you closed its linked session.                                                                                                                        |
-| `--status-left TEXT`         | Adds a part of approved work that is left, after the proposal's parts. When the proposal already has a part with that text, the hub sets that part back to left.                                                                                                 |
-| `--status-done TEXT`         | Marks the part with that text done, and refuses text that matches none of the proposal's parts.                                                                                                                                                                  |
-| `--status-drop TEXT`         | Marks the part with that text dropped. The part stays in the proposal's parts, and no flag removes one.                                                                                                                                                          |
+| Flag                         | Behavior                                                                                                                                                             |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--revise`                   | Updates supplied fields and keeps the rest. Refused once approved, declined, withdrawn, or done.                                                                     |
+| `--start WHERE --quote TEXT` | Starts a proposal from your own words (`here`, `sub-session`, or `new-agent`) quoting you. When run by the holder, prints the started work like `pair read`.         |
+| `--withdraw --reason TEXT`   | Withdraws an unapproved proposal with a reason.                                                                                                                      |
+| `--done`                     | Marks a running-here proposal done after its final page. With `--where TEXT` (such as `"in #86"`), marks work finished elsewhere. Refused for linked-session work.   |
+| `--join OTHER`               | Joins a Proposed card into OTHER (refused if OTHER is declined, withdrawn, done, joined, or in a linked session).                                                    |
+| `--reopen`                   | Undoes the agent's `--done` or `--join` (refused if marked done by closing a linked session).                                                                        |
+| `--status-left TEXT`         | Appends a remaining work part, or resets a matching part back to left.                                                                                               |
+| `--status-done TEXT`         | Marks a matching work part done (errors if no part matches).                                                                                                         |
+| `--status-drop TEXT`         | Marks a matching work part dropped (kept in the list; no flag deletes parts).                                                                                        |
 
-The hub refuses `--done` for a proposal whose work runs in a sub-session or with
-a new agent. When you close that session, the hub marks the proposal done.
-
-The three `--status` flags repeat, once for each part, and one command can mix
-them. Each flag changes only the part with its text. The hub accepts them only
-for work that you approved and that is not finished, in a command with no other
-flag from this section. It refuses `--status-done` and `--status-drop` for text
-that matches no part, with an error that lists the proposal's parts. The hub
-applies the `--status-left` parts first, so one command can add a part and mark
-it done. A proposal has at most 20 parts, each at most 80 characters, and
-`--reopen` clears them.
+The three `--status` flags repeat and combine in one standalone command for
+unfinished approved work (up to 20 parts, 80 characters each; `--reopen` clears
+them). `--status-left` applies first so one call can add and complete a part.
+Unmatched `--status-done` / `--status-drop` errors list the existing parts.
 
 ## pair register and pair agents
 
-`pair register` adds the agent session it runs in to pair's list of running
-agent sessions, and `pair agents` prints the list. Neither needs the hub.
+`pair register` adds the current agent session to the running list without
+needing the hub, and `pair agents` displays it:
 
 ```console
 $ pair register
@@ -98,36 +86,31 @@ fix-login-54  Claude Code  ~/src/app-worktrees/fix-login  fix-login  claude-code
 api-d3        Codex        ~/src/api                      main       codex:0199c1d4
 ```
 
-A session is named for its folder and two hex characters from its ID, keeps that
-name when its CLI restarts, and `--name NAME` sets another. `pair agents` prints
-the start of each ID, `--json` prints whole IDs, and a session leaves the list
-when its CLI exits. `pair start`, `pair message` and `pair spawn` register the
-agent that runs them, and pair's pi extension and opencode plugin register each
-session when it starts.
+Sessions default to `<folder>-<2 hex chars>` (preserved across CLI restarts;
+override with `--name NAME`) and drop from the list when their CLI exits.
+`pair agents` abbreviates IDs; `--json` prints full IDs. `pair start`,
+`pair message`, `pair spawn`, and pair's pi/opencode integrations register
+automatically.
 
-An agent CLI's start hook runs `pair register --hook`. With `--hook`,
-`pair register` reads the session ID from the hook's JSON on stdin when the
-environment has none, `session_id` from Codex and `sessionId` from Copilot CLI,
-prints one line, and exits 0 even when it cannot register. Codex 0.169 and
-Copilot CLI 1.0.105 run the start hook when the session's first turn starts, so
-a session registers then. Antigravity CLI leaves its language server address and
-token out of hook environments. In a `PreInvocation` hook,
-`pair register --hook` prints a `PreInvocation` JSON message instructing the
-agent to run `pair register` when that interactive `agy` process is not yet
-listed. Once that `agy` process is listed, later turns and its subagents print
-nothing, and headless `-p` runs always print nothing.
+Start hooks run `pair register --hook`, reading stdin JSON when env lacks the ID
+(`session_id` in Codex 0.169, `sessionId` in Copilot CLI 1.0.105, both invoked
+on the first turn), printing one line, and always exiting 0. Because Antigravity
+CLI omits its language-server env vars in hooks, `pair register --hook` in a
+`PreInvocation` hook emits JSON telling an unlisted interactive `agy` session to
+run `pair register` (silent once listed, in subagents, or in headless `-p`
+runs).
 
 ## pair message
 
-`pair message` sends a message to a running agent session through its agent CLI,
-without the hub, and prints when the session's agent reads it.
+`pair message` sends text directly to a running agent session through its CLI
+(no hub required) and reports when the recipient will read it:
 
 ```console
 $ pair message --to fix-login-54 --text "The session table now has a revoked_at column."
 Sent to fix-login-54 (Claude Code). It reads the message at once if it is idle, and otherwise between the steps of its current turn.
 ```
 
-When `api-d3` sent it, the agent in `fix-login-54` reads this:
+Delivered message when sent by `api-d3`:
 
 ```text
 pair message from api-d3 (Codex in ~/src/api):
@@ -138,132 +121,104 @@ To answer, run: pair message --to codex:0199c1d4-1111-7000-8000-000000000000 --t
 If you have nothing to say, acknowledge it: pair message --to codex:0199c1d4-1111-7000-8000-000000000000 --ack
 ```
 
-`--to` takes a name or ID that `pair agents` prints, or the start of one ID.
-`--text` and `--file` take at most 100 KB of text, which Claude Code 2.1.325,
-Codex 0.169, pi 1.5.0, Copilot CLI 1.0.105 and opencode 2.2.5 each received
-whole.
+`--to` accepts a name, full ID, or unique ID prefix from `pair agents`. `--text`
+and `--file` accept up to 100 KB (verified intact on Claude Code 2.1.325, Codex
+0.169, pi 1.5.0, Copilot CLI 1.0.105, and opencode 2.2.5).
 
-| Sender                   | First line                             | Last lines                                                                |
-| ------------------------ | -------------------------------------- | ------------------------------------------------------------------------- |
-| An agent session         | `pair message from NAME (CLI in DIR):` | The commands that answer and acknowledge it, with the sender's whole ID   |
-| A plain terminal         | `pair message from your user:`         | `This message has no answer command. Answer in your own chat, if at all.` |
-| `--from LABEL`, anywhere | `pair message from LABEL:`             | The same line as from a plain terminal                                    |
+| Sender                   | Header                                 | Footer                                                                   |
+| ------------------------ | -------------------------------------- | ------------------------------------------------------------------------ |
+| Agent session            | `pair message from NAME (CLI in DIR):` | Reply and `--ack` commands with the sender's full ID                     |
+| Plain terminal           | `pair message from your user:`         | `This message has no answer command. Answer in your own chat, if at all.` |
+| `--from LABEL`, anywhere | `pair message from LABEL:`             | Same as plain terminal                                                   |
 
-Inside an agent session, `pair message` registers that session first, and sends
-nothing when it cannot. A subagent of Codex, opencode or Antigravity CLI has no
-entry, so its message names it through its parent, as `api-d3/Goodall`, and a
-Copilot CLI subagent sends only with `--from`. `--ack`, in place of `--text`,
-sends one line and no command to answer it, and works only inside an agent
-session:
+Inside an agent session, `pair message` registers the sender first (aborting if
+registration fails). Codex, opencode, and Antigravity subagents identify through
+their parent (such as `api-d3/Goodall`); Copilot CLI subagents require `--from`.
+`--ack` (agent sessions only) sends a single acknowledgement line with no reply
+command:
 
 ```text
 pair message from fix-login-54 (Claude Code in ~/src/app-worktrees/fix-login) acknowledges your message. Don't answer it.
 ```
 
-`--to NAME/SUBAGENT` sends the message to a subagent of the session. In Claude
-Code, Codex, Copilot CLI and Antigravity CLI the parent receives it, with a
-first line that asks the parent's agent to pass it on unchanged: with
-`SendMessage` in Claude Code, `followup_task` and the subagent's agent path in
-Codex, `write_agent` in Copilot CLI, and `send_message` in Antigravity CLI. pair
-finds a Codex subagent by the name the parent gave it or by its nickname. In
-opencode, pair's plugin prompts the subagent's session, found by its task or its
-agent. pi has no subagents of its own, and a pi that an extension runs with
-pair's extension registers as a session of its own.
+`--to NAME/SUBAGENT` targets a subagent. On Claude Code, Codex (matched by name
+or nickname), Copilot CLI, and Antigravity CLI, the parent receives an
+instruction to forward verbatim via `SendMessage`, `followup_task`,
+`write_agent`, or `send_message`. On opencode, pair's plugin prompts the
+subagent directly (matched by task or agent). pi has no native subagents;
+extension-spawned pi processes register independently.
 
 ## pair spawn
 
-`pair spawn` starts a new session of an agent CLI in a folder, with a first
-prompt, and prints the name that `pair message --to` takes.
+`pair spawn` launches a new CLI session in a directory with an optional first
+prompt and prints its `pair message --to` name:
 
 ```console
 $ pair spawn codex --dir ~/code/shop --prompt "Fix the failing checkout test, then message shop-ea when it passes."
 Started shop-3f (Codex) in ~/code/shop. Message it with: pair message --to shop-3f --text "…"
 ```
 
-| Part                             | Meaning                                                                    |
-| -------------------------------- | -------------------------------------------------------------------------- |
-| `CLI`                            | `claude`, `codex`, `copilot`, `pi`, `opencode` or `agy`.                   |
-| `--dir DIR`                      | The folder to start it in. The default is the current folder.              |
-| `--name NAME`                    | The name it registers under. The default is the one `pair register` gives. |
-| `--prompt TEXT` or `--file PATH` | The first prompt. Without one, the session only registers.                 |
-| `-- ARG…`                        | Options for the CLI, such as `-- --model sonnet`, but not the prompt.      |
+| Argument                         | Meaning                                                          |
+| -------------------------------- | ---------------------------------------------------------------- |
+| `CLI`                            | `claude`, `codex`, `copilot`, `pi`, `opencode`, or `agy`.        |
+| `--dir DIR`                      | Working directory (default: current directory).                  |
+| `--name NAME`                    | Target registration name (default: `pair register` default).     |
+| `--prompt TEXT` or `--file PATH` | Initial prompt (if omitted, the session only registers).         |
+| `-- ARG…`                        | Extra CLI flags (such as `-- --model sonnet`), not the prompt.   |
 
-`pair spawn` runs your launch script, `~/.config/pair/spawn DIR COMMAND ARG…`,
-or `spawn.ps1` on Windows, which is the script the hub runs when you press Start
-agent on a proposal with no message. `COMMAND ARG…` starts the CLI with the
-arguments after `--`, then the first prompt
-`In your own shell, run pair register first.`, followed by your prompt. With
-`--name NAME`, the first prompt starts with "In your own shell, run
-`pair register --name NAME` first. If another running session has that name, run
-`pair register` without `--name`." instead, and `pair spawn` refuses a NAME that
-a running session already has before it runs the script. Without a launch
-script, `pair spawn` refuses and starts nothing. When the script fails, or runs
-longer than 10 seconds, `pair spawn` fails with the script's error.
+`pair spawn` invokes `~/.config/pair/spawn DIR COMMAND ARG…` (or `spawn.ps1` on
+Windows), prepending `In your own shell, run pair register first.` (or
+`pair register --name NAME` with fallback if `--name` is set, rejecting
+duplicate live names before launch). It fails if the script is missing, errors,
+or exceeds 10 seconds.
 
-When you give arguments after `--`, `pair spawn` ends them with `--` for
-`claude`, `codex` and `pi`, so a flag that takes several values, such as
-`--add-dir`, cannot take the prompt as one of them. A flag that your launch
-script adds then belongs right after COMMAND, not after the prompt.
+For `claude`, `codex`, and `pi`, flags after `--` end with `--` before the
+prompt so multi-value flags (such as `--add-dir`) cannot swallow the prompt; any
+flags added by your launch script belong right after `COMMAND`.
 
-Without `--name`, `pair spawn` finds the new session by its folder. Give
-`--name` with an argument that makes the CLI run in another folder, such as
-Codex's `-C` or `--worktree`.
+Without `--name`, `pair spawn` matches the new session by directory; pass
+`--name` when a CLI flag changes directories (such as Codex's `-C` or
+`--worktree`). Inside an agent session, `pair spawn` registers the caller first
+(continuing with a warning on failure).
 
-Inside an agent session, `pair spawn` registers that session first, so the new
-session can message it. When that fails, `pair spawn` prints why and starts the
-new session anyway.
-
-`pair spawn` waits up to 30 seconds for the new session to register. When it
-does not, as while the CLI waits at its folder-trust prompt, `pair spawn` prints
-this and exits 0:
+`pair spawn` waits up to 30 seconds for registration; if the CLI stalls (for
+example, at a folder-trust prompt), it exits 0 with:
 
 ```console
 Started Codex in ~/code/shop. It appears in pair agents once it runs pair register.
 ```
 
-pair adds no flag that skips a CLI's folder-trust prompt. Your launch script can
-add one, or you can give it after `--`.
-
-A Codex session started with a `-c` override, `--profile` or `--search` runs
-without Codex's shared app-server daemon, unlike one started with `-m`, so
-pair's messages reach it only between turns.
+pair never skips folder-trust prompts; add trust flags in your launch script or
+after `--`. Codex sessions launched with `-c`, `--profile`, or `--search` bypass
+its shared daemon (unlike `-m`), so messages arrive only between turns.
 
 ## Environment variables
 
-All six are optional.
+All six are optional:
 
-| Variable                | Default          | Meaning                                                                                                                                                                           |
-| ----------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PAIR_HUB_PORT`         | 4747             | The hub's port on 127.0.0.1. With `0`, the system assigns a free port, as the tests do.                                                                                           |
-| `PAIR_HUB_HOST`         | unset            | An extra address for the hub to listen on, such as a Tailscale IP, so you can review on a phone.                                                                                  |
-| `PAIR_HUB_IDLE_SECONDS` | 900              | How long the hub keeps running with no live session.                                                                                                                              |
-| `PAIR_WAKE`             | on               | With `off`, the hub writes each wake line to its log instead of sending it, and `pair message` writes its message to stderr. pair refuses `off` with the default state directory. |
-| `XDG_STATE_HOME`        | `~/.local/state` | pair stores the sessions and the hub's files in its `pair/` folder.                                                                                                               |
-| `XDG_CONFIG_HOME`       | `~/.config`      | pair reads your components, guide files, moment files and launch script from its `pair/` folder.                                                                                  |
+| Variable                | Default          | Meaning                                                                                                                                    |
+| ----------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `PAIR_HUB_PORT`         | 4747             | Hub port on `127.0.0.1` (`0` assigns a free port, as in tests).                                                                            |
+| `PAIR_HUB_HOST`         | unset            | Additional bind address (such as a Tailscale IP) for phone review.                                                                         |
+| `PAIR_HUB_IDLE_SECONDS` | 900              | Seconds the hub stays up with no live sessions.                                                                                            |
+| `PAIR_WAKE`             | on               | Set `off` to log wakes and write `pair message` to stderr instead of delivering. Refused with the default state directory.                 |
+| `XDG_STATE_HOME`        | `~/.local/state` | Parent folder for pair's `pair/` state directory.                                                                                          |
+| `XDG_CONFIG_HOME`       | `~/.config`      | Parent folder for pair's `pair/` config directory (components, guide overrides, launch script).                                            |
 
-The hub's browser routes need no token, so the hub listens on an extra address
-only when you set `PAIR_HUB_HOST`. Anyone who can reach that address can read
-your sessions and send rounds that your agent acts on as yours, so set it only
-to an address on a network you trust, such as your own Tailscale IP. pair
-refuses `0.0.0.0` and `::`, which would make the hub reachable from every
-network the machine is on. The routes that agents use need the session's bearer
-token on every address.
+Browser routes require no token, so bind `PAIR_HUB_HOST` only to a trusted
+network address (such as Tailscale); anyone able to reach it can read sessions
+and send rounds. pair refuses `0.0.0.0` and `::`. Agent routes always require a
+bearer token.
 
-While a hub runs, `pair start` refuses to use its port for another state
-directory, so give each state directory its own `PAIR_HUB_PORT`.
+Each state directory needs its own `PAIR_HUB_PORT` while another hub runs.
 
-A Codex from version 0.160 started with no `-c` override runs the agent's
-commands on its app-server daemon, with the daemon's environment, so a variable
-you export in the terminal before you start Codex does not reach `pair`. To run
-a session under Codex on another port or state directory, ask the agent to put
-the variables in front of `pair start` with `env`:
+Plain Codex (0.160+ without `-c`) executes commands in its daemon's environment,
+ignoring variables exported in your terminal. Pass them inline with `env`:
 
 ```sh
 env XDG_STATE_HOME=/tmp/pair-state PAIR_HUB_PORT=4800 pair start --title "Try pair"
 ```
 
-`pair start` writes the address of its hub to the session's `connection.json`,
-and every other command with `--session-dir` sends its request to that address.
-A `pair start` that resumes the session, and a command that finds no hub at that
-address, use the hub that the variables in their own environment give, so they
-need the variables in front of them too.
+`pair start` records the hub origin in `connection.json` for subsequent
+`--session-dir` commands, but resuming or falling back when that hub is down
+uses the command's own environment, so keep the `env` prefix on those calls too.

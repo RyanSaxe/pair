@@ -1,52 +1,48 @@
 # Documentation
 
-`pair` lets you and your coding agent work through a change together, in your
+`pair` lets you and your coding agent work through a change together in your
 browser.
 
 ## Getting started
 
-- [Install](getting-started/install.md) explains how to install and update
-  `pair` and its skill, and what each agent CLI needs.
+- [Install](getting-started/install.md): install and update `pair`, its skill,
+  and each agent CLI.
 
 ## Concepts
 
-- [Sessions and rounds](concepts/sessions-and-rounds.md) explains sessions,
-  rounds, pages, Agreed, drafts and closing a session.
-- [Proposals and Work](concepts/proposals-and-work.md) explains how the agent
-  suggests work, how you approve it, where it runs, what a plan contains, and
-  how work is finished.
-- [Threads](concepts/threads.md) explains how to get an answer before the next
-  round.
-- [Holders and handoff](concepts/holders-and-handoff.md) explains which agent
-  the hub wakes for a session, and how another agent takes the session over.
-- [Architecture](concepts/architecture.md) explains the hub, how it wakes the
-  agent, and what `pair` stores on disk.
+- [Sessions and rounds](concepts/sessions-and-rounds.md): sessions, rounds,
+  pages, Agreed, drafts, notifications, and closing.
+- [Proposals and Work](concepts/proposals-and-work.md): proposing, approving,
+  running, planning, and finishing work.
+- [Threads](concepts/threads.md): getting an answer before the next round.
+- [Holders and handoff](concepts/holders-and-handoff.md): which agent the hub
+  wakes and how another agent takes over.
+- [Architecture](concepts/architecture.md): the hub, waking agents, and on-disk
+  storage.
 
 ## Guides
 
-- [Plan a change](guides/plan-a-change.md) explains how to plan a change until
-  you have a plan you can approve.
-- [Understand code](guides/understand-code.md) explains how to use a session to
-  learn a codebase, a module or a pull request.
-- [Build the work](guides/build-the-work.md) explains how to follow the work you
-  approved while the agent builds it, and how to review the result.
-- [Search](guides/search.md) explains how to find anything you read or wrote in
-  pair, across every session.
-- [Advanced setup](guides/advanced-setup.md) explains the launch script for
-  Start agent, messaging between agent sessions, your own text in pair's
-  instructions, and your own components.
+- [Plan a change](guides/plan-a-change.md): iterate until you have a plan to
+  build.
+- [Understand code](guides/understand-code.md): explore a codebase, module, or
+  pull request.
+- [Build the work](guides/build-the-work.md): follow approved work and review
+  the result.
+- [Search](guides/search.md): find anything you read or wrote across sessions.
+- [Advanced setup](guides/advanced-setup.md): launch scripts, inter-agent
+  messaging, custom guide text, and custom components.
 
 ## Reference
 
-- [Commands](reference/commands.md) lists every `pair` command and environment
+- [Commands](reference/commands.md): every `pair` command and environment
   variable.
-- [The guide](reference/the-guide.md) lists the files the agent reads, and when
-  it reads each one.
-- [Troubleshooting](troubleshooting.md) explains how to fix known problems.
+- [The guide](reference/the-guide.md): the files the agent reads and when it
+  reads them.
+- [Troubleshooting](troubleshooting.md): fixes for known problems.
 
 ## Change pair
 
-- [Contributing](contributing/README.md) explains how to run `pair` from a
-  checkout, lists the repository's folders and gives the checks to run.
-- [Adapters](contributing/adapters.md) describes what a `wake.mjs` exports so
-  that the hub can wake an agent CLI.
+- [Contributing](contributing/README.md): run from a checkout, repository
+  layout, checks, screenshots, and releases.
+- [Adapters](contributing/adapters.md): the `wake.mjs` interface for waking an
+  agent CLI.
